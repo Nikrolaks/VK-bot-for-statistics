@@ -1,14 +1,20 @@
 import requests
 import vk_api
 
-vk_session = vk_api.VkApi(token='38848446351cbc8d520eaa7f6340f8533b8d06b0bae7db46bb61428d47571d7565cd642cc98202caccfd6')
+session = requests.Session()
+login, password = 'secret', 'super_secret'
+vk_session = vk_api.VkApi(login, password)
+try:
+    vk_session.auth(token_only=True)
+except vk_api.AuthError as error:
+    print(error)
 
-from vk_api.longpoll import VkLongPoll, VkEventType
-longpoll = VkLongPoll(vk_session)
 vk = vk_session.get_api()
-for event in longpoll.listen():
-    if event.type == VkEventType.MESSAGE_NEW and event.to_me and event.text:
-        if event.text == 'Привет!!!':
-            if event.from_user:
-                vk.messages.send(user_id=event.user_id, message='Привет, брат, хоть я и бот!',
-                                 random_id='12345', peer_id=event.user_id)
+a = vk.groups.getById(group_id='stickertime', fields='description')[0]
+super_id = a['id']
+members = vk.groups.getMembers(group_id=super_id, fields='online')
+online = 0
+for member in members['items']:
+    # print(member)
+    online += member['online']
+print(online)
