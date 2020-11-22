@@ -15,7 +15,10 @@ a = vk.groups.getById(group_id='memkn', fields='description')[0]
 super_id = a['id']
 members = vk.groups.getMembers(group_id=super_id, fields='online')
 online = 0
+members_online = []
 for member in members['items']:
-    print(member)
+    if member['online'] == 1:
+        members_online.append(member['id'])
     online += member['online']
 print(online)
+print(members_online)
