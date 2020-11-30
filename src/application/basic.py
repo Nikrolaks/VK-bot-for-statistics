@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 import vk_api
+import time
 from src.math.statistic_calculator import ContentTimeComputer
 
 
@@ -13,9 +14,11 @@ class Group:
     :param self.done_iterations: сколько раз собиралась информация об участниках онлайн.
     :param self.were_online: список id пользователей, которые были онлайн в момент предпоследнего сбора данных.
     """
-    def __init__(self, request_owner_id: int, group_id: int, math_processor: ContentTimeComputer,
-                 count_of_iterations, done_iterations, were_online: list):
+    def __init__(self, request_owner_id: int, group_id: int, url: str, math_processor: ContentTimeComputer,time_of_beginning,
+                 count_of_iterations: int, done_iterations, were_online: list):
         self.id = group_id
+        self.url = url
+        self.time_of_beginning = time_of_beginning
         self.math_processor = math_processor
         self.request_owner_id = request_owner_id
         self.count_of_iterations = count_of_iterations
@@ -33,24 +36,33 @@ class Application:
         session = vk_api.VkApi(token='c15b89d7c15b89d7c15b89d75ac12e9b1ccc15bc15b89d79ee1cf4a5977bbe4ff8f6761')
         self.application_session = session.get_api()
 
-    def find_group_by_short_name(self, request_owner_id, short_name, iterations) -> {None, Group}:
+    def find_url_of_group(self, short_name: str):
         """
+        функция находит группу по короткому имени, если она есть, и возвращает ссылку
+        :param short_name: короткое имя или id группы
+        :return: если группа существует, то список из двух элементов, первый - id, второй - ссылка на группу
+        """
+        finding_results = []
+        try:
+            group = self.application_session.groups.getById(group_id=short_name)[0]
+            finding_results.append(group['id'])
+            finding_results.append('https://vk.com/'+short_name)
+            print(finding_results)
+            return finding_results
+        except:
+            return None
+
+    def create_group_by_id(self, request_owner_id, id_url: list, iterations) -> {Group}:
+        """
+        по данному id, ссылке и заданным пользователем количеством сборов данных создаёт объект Group
         :param request_owner_id: идентификатор, куда уходят данные.
-        :param short_name: короткое имя группы или id, если у группы нет короткого имени.
+        :param id_url: короткое имя группы или id + ссылка.
         :param iterations: сколько раз нужно получить количество пользователей онлайн для составления статистики.
         :return: объект класса Group, если группа была найдена, иначе - None.
         """
-        print(short_name)
-        try:
-            finding_results = self.application_session.groups.getById(group_id=short_name, fields='description')
-        except:
-            return None
-        # а нужна ли эта проверка - пока не знаю. Скорее всего, в функцию сверху надо отправлять
-        # не group_id, а одноэлементный group_ids
-        if len(finding_results) == 0:
-            return None
-        group = finding_results[0]
-        return Group(request_owner_id, group['id'], ContentTimeComputer(), iterations, 0, [])
+        print(id_url)
+        time_of_beginning = time.gmtime(time.time())
+        return Group(request_owner_id, id_url[0], id_url[1], ContentTimeComputer(), time_of_beginning, iterations, 0, [])
 
     def get_information_about_members_online(self, group: Group) -> list:
         """
@@ -75,3 +87,4 @@ class Application:
                                                    group.were_online,
                                                    current_members_online)
         group.were_online = current_members_online
+
