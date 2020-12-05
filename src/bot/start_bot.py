@@ -16,6 +16,7 @@ class ThreadListeningChannel(Thread):
         """
         Эта функция запускает цикл наблюдения за группами.
         """
+        print('testestest1')
         self.bot.start_counting_statistic_loop()
         print('this is the end of running thread for listening channel')
 
@@ -32,12 +33,13 @@ class ThreadAcceptOrders(Thread):
         """
         Эта функция запускает цикл обработки сообщений пользователей.
         """
+        print('testestest2')
         self.bot.start_processing_users_messages()
         print('this is the end of running thread for accept orders')
 
 
 if __name__ == '__main__':
-    super_puper_bot = VkBotForStatistic(20)
+    super_puper_bot = VkBotForStatistic(1)
     thread1 = ThreadAcceptOrders(super_puper_bot)
     thread2 = ThreadListeningChannel(super_puper_bot)
     thread1.start()

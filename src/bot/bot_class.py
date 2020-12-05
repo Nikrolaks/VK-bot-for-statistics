@@ -2,7 +2,7 @@
 import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType, Event
 from vk_api.utils import get_random_id
-import time, re
+import time
 from collections import deque
 from src.application.basic import Application
 
@@ -14,9 +14,13 @@ class VkBotForStatistic:
     :param Application self.creating_statistic_system: система для сбора и обработки информации.
     :param bool self.is_work_in_progress: собирается ли сейчас информация о группах или нет.
     :param deque self.following_groups: стек групп, которые находятся на прослушке.
+    :param deque self.groups_to_delete: стек групп, обработка которых закончена.
     :param int self.unit_measurement_of_listening: единица времени простоя прослушивания.
     :param bool self.is_need_work: этот флажок нужно установит в False, когда нужно завершить выполнение программы.
     :param list self.keys_to_start_talking_with_bot: ключевые фразы, чтобы начать общение с ботом.
+    :param dict self.main_keyboard: главная клавиатура, как бы меню бота.
+    :param dict self.set_group_to_process_keyboard: клавиатура, которая встраивается в сообщение с информацией о группе.
+    :param dict self.show_processing_groups_keyboard: клавиатура для режима работы с обрабатываемыми группами.
     """
     def __init__(self, measurement_waiting_intervals: int) -> None:
         """
@@ -29,11 +33,18 @@ class VkBotForStatistic:
         self.group_representative = bot_session.get_api()
         self.creating_statistic_system = Application()
         self.following_groups = deque()
+        self.groups_to_delete = deque()
         self.unit_measurement_of_listening = measurement_waiting_intervals
         self.is_work_in_progress = False
         self.is_need_work = True
         self.keys_to_start_talking_with_bot = ['HELP', 'Привет', '!!!Слава Павлу Дурову!!!']
         self.iterations = 47  # Костыль пока Слава не исправит код
+        with open('keyboards\main_keyboard.json', 'r', encoding='utf-8') as f:
+            self.main_keyboard = f.read()
+        with open('keyboards\set_group_to_process_keyboard.json', 'r', encoding='utf-8') as f:
+            self.set_group_to_process_keyboard = f.read()
+        with open('keyboards\show_processing_groups_keyboard.json', 'r', encoding='utf-8') as f:
+            self.show_processing_groups_keyboard = f.read()
 
     def start_counting_statistic_loop(self) -> None:
         """
@@ -56,13 +67,14 @@ class VkBotForStatistic:
                     groups_to_delete.append(group)
                 else:
                     groups_to_continue_following.append(group)
-            for group in groups_to_delete:
+            while self.groups_to_delete.__len__():
                 # Удаляю группы из очереди прослушиваемых и
                 # отправляю владельцам сообщения о сформированной статистике
                 #   а) Вынимаю id пользователя, запросившего сбор статистики
                 #   б) Получаю сформированный ответ системы по данным статистики
                 #   в) Сообщаю пользователю о том, что сбор статистике окончен и
                 #      высылаю ему отчет
+                group = self.groups_to_delete.pop()
                 user_id = group.request_owner_id
                 listening_result = group.math_processor.calculate_effective_time()
                 self.group_representative.messages.send(
@@ -70,7 +82,6 @@ class VkBotForStatistic:
                     message='Сбор статистики окончен.\nТебе стоит выкладывать посты в {0}'.format(listening_result))
             self.following_groups = deque(groups_to_continue_following)
             self.is_work_in_progress = False
-            groups_to_delete.clear()
             groups_to_continue_following.clear()
             time.sleep(self.unit_measurement_of_listening)
 
@@ -98,11 +109,13 @@ class VkBotForStatistic:
         :param event: это информация как о полученном сообщении, так и о его отправителе.
         :return нужно ли завершить работу бота.
         """
+        print(event.text)
         if event.text in self.keys_to_start_talking_with_bot:
             self.group_representative.messages.send(
                 user_id = event.user_id,
                 message='Привет, рад тебя видеть!',
-                random_id = get_random_id()
+                random_id = get_random_id(),
+                keyboard= self.main_keyboard
             )
         elif 'статистика:' in event.text:
             group_short_name = event.text[len('статистика:'):].split()

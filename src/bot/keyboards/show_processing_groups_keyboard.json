@@ -1,0 +1,36 @@
+{
+  "one_time" : true,
+  "buttons" : [
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Сколько осталось до конца обработки",
+          "payload" : "choose_group_to_get_information"
+        },
+        "color" : "primary"
+      }
+    ],
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Убрать группу",
+          "payload" : "choose_group_to_delete"
+        },
+        "color" : "negative"
+      }
+    ],
+    [
+      {
+        "action" : {
+          "type" : "callback",
+          "label" : "Вернуться",
+          "payload" : "go_back_to_main"
+        },
+        "color" : "secondary"
+      }
+    ]
+  ],
+  "inline" : false
+}
