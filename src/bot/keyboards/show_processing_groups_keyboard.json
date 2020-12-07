@@ -5,8 +5,7 @@
       {
         "action" : {
           "type" : "text",
-          "label" : "Сколько осталось до конца обработки",
-          "payload" : "choose_group_to_get_information"
+          "label" : "Сколько осталось до конца обработки"
         },
         "color" : "primary"
       }
@@ -15,8 +14,7 @@
       {
         "action" : {
           "type" : "text",
-          "label" : "Убрать группу",
-          "payload" : "choose_group_to_delete"
+          "label" : "Убрать группу"
         },
         "color" : "negative"
       }
@@ -24,9 +22,8 @@
     [
       {
         "action" : {
-          "type" : "callback",
-          "label" : "Вернуться",
-          "payload" : "go_back_to_main"
+          "type" : "text",
+          "label" : "Вернуться"
         },
         "color" : "secondary"
       }

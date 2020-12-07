@@ -7,6 +7,12 @@ from collections import deque
 from src.application.basic import Application
 
 
+class UserRepresentative:
+    def __init__(self):
+        self.is_in_setting_group = False
+        self.processing_groups = []
+
+
 class VkBotForStatistic:
     """
     :param VkLongPoll self.requests_system: система для получения запросов пользователей.
@@ -37,20 +43,23 @@ class VkBotForStatistic:
         self.unit_measurement_of_listening = measurement_waiting_intervals
         self.is_work_in_progress = False
         self.is_need_work = True
-        self.keys_to_start_talking_with_bot = ['HELP', 'Привет', '!!!Слава Павлу Дурову!!!']
+        self.keys_to_start_talking_with_bot = ['Начать', 'Привет', '!!!Слава Павлу Дурову!!!']
         self.iterations = 47  # Костыль пока Слава не исправит код
-        with open('keyboards\main_keyboard.json', 'r', encoding='utf-8') as f:
+        with open('keyboards\\main_keyboard.json', 'r', encoding='utf-8') as f:
             self.main_keyboard = f.read()
-        with open('keyboards\set_group_to_process_keyboard.json', 'r', encoding='utf-8') as f:
+        with open('keyboards\\set_group_to_process_keyboard.json', 'r', encoding='utf-8') as f:
             self.set_group_to_process_keyboard = f.read()
-        with open('keyboards\show_processing_groups_keyboard.json', 'r', encoding='utf-8') as f:
+        with open('keyboards\\show_processing_groups_keyboard.json', 'r', encoding='utf-8') as f:
             self.show_processing_groups_keyboard = f.read()
+        self.test_groups_to_add = deque()
+        self.processing_users = {}
+        self.test_processing_groups = deque()
+        self.test_groups_to_delete = deque()
 
     def start_counting_statistic_loop(self) -> None:
         """
         Эта функция запускает бесконечный цикл прослушивания групп.
         """
-        groups_to_delete = []
         groups_to_continue_following = []
         while self.is_need_work:
             self.is_work_in_progress = True
@@ -64,7 +73,7 @@ class VkBotForStatistic:
                 print('{0}| До конца исследования осталось {1}'.format(group.id, 47-group.done_iterations))
                 self.creating_statistic_system.update_information_for_math_processor(group)
                 if group.done_iterations == group.count_of_iterations:
-                    groups_to_delete.append(group)
+                    self.groups_to_delete.append(group)
                 else:
                     groups_to_continue_following.append(group)
             while self.groups_to_delete.__len__():
@@ -101,6 +110,7 @@ class VkBotForStatistic:
             # жду пока не завершится процесс обработки групп
             pass
         self.following_groups.append(group)
+        self.processing_users[request_owner_id].processing_groups.append(group.id)
         return True
 
     def process_new_messages(self, event: Event) -> bool:
@@ -109,40 +119,95 @@ class VkBotForStatistic:
         :param event: это информация как о полученном сообщении, так и о его отправителе.
         :return нужно ли завершить работу бота.
         """
-        print(event.text)
         if event.text in self.keys_to_start_talking_with_bot:
             self.group_representative.messages.send(
-                user_id = event.user_id,
+                user_id=event.user_id,
                 message='Привет, рад тебя видеть!',
-                random_id = get_random_id(),
-                keyboard= self.main_keyboard
+                random_id=get_random_id(),
+                keyboard=self.main_keyboard
             )
-        elif 'статистика:' in event.text:
-            group_short_name = event.text[len('статистика:'):].split()
-            print(group_short_name)
-            if len(group_short_name) == 0:
+        elif event.text == 'Начать сбор статистики':
+            if event.user_id not in self.processing_users:
+                self.processing_users[event.user_id] = UserRepresentative()
+            self.processing_users[event.user_id].is_in_setting_group = True
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                message='Напиши короткое имя группы',
+                random_id=get_random_id()
+            )
+        elif event.text == 'Получить список обрабатываемых групп':
+            if event.user_id not in self.processing_users or not len(
+                    self.processing_users[event.user_id].processing_groups):
                 self.group_representative.messages.send(
                     user_id=event.user_id,
-                    message='Ты неправильно отправил запрос\nПопробуй снова в формате:\n'
-                            '"статистика: __group__short__name__"',
-                    random_id=get_random_id()
+                    message='У тебя не обрабатываются группы',
+                    random_id=get_random_id(),
+                    keyboard=self.main_keyboard
                 )
                 return False
-            group_short_name = group_short_name[0]
+            message = ''
+            counter = 0
+            for group in self.processing_users[event.user_id].processing_groups:
+                message += '{0}| {1}\n'.format(counter+1, group)
+                counter += 1
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                message=message,
+                random_id=get_random_id(),
+                keyboard=self.show_processing_groups_keyboard
+            )
+        elif event.user_id in self.processing_users and self.processing_users[event.user_id].is_in_setting_group:
+            if event.text == 'Да' or event.text == 'Вернуться':
+                self.group_representative.messages.send(
+                    user_id=event.user_id,
+                    message='Пойдем обратно в главное меню',
+                    random_id=get_random_id(),
+                    keyboard=self.main_keyboard
+                )
+                self.processing_users[event.user_id].is_in_setting_group = False
+                return False
+            group_short_name = event.text
+            print(group_short_name)
+            if len(group_short_name) == 0:
+                self.processing_users[event.user_id].is_in_setting_group = False
+                self.group_representative.messages.send(
+                    user_id=event.user_id,
+                    message='Ты неправильно отправил запрос',
+                    random_id=get_random_id(),
+                    keyboard=self.main_keyboard
+                )
+                return False
             if self.accept_request_to_listening(event.user_id, group_short_name):
                 self.group_representative.messages.send(
                     user_id=event.user_id,
                     message='Запрос принят. Информация о статистике придет через примерно 47 секунд',
-                    random_id=get_random_id()
+                    random_id=get_random_id(),
+                    keyboard=self.set_group_to_process_keyboard
                 )
             else:
+                self.processing_users[event.user_id].is_in_setting_group = False
                 self.group_representative.messages.send(
                     user_id=event.user_id,
                     message='Группы с таким коротким именем (или идентификатором) не существует\nПопробуй снова',
-                    random_id = get_random_id()
+                    random_id = get_random_id(),
+                    keyboard=self.main_keyboard
                 )
+        elif event.text == 'Вернуться':
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                message='Пойдем обратно в главное меню',
+                random_id=get_random_id(),
+                keyboard=self.main_keyboard
+            )
         elif event.text == 'red button' and event.user_id == 197313771:
             return True
+        else:
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                message='Я не знаю такой команды(((',
+                random_id=get_random_id(),
+                keyboard=self.main_keyboard
+            )
         return False
 
     def start_processing_users_messages(self) -> None:
@@ -152,7 +217,16 @@ class VkBotForStatistic:
         """
 
         for event in self.requests_system.listen():
-            if event.type == VkEventType.MESSAGE_NEW and event.text and event.to_me:
-                if (self.process_new_messages(event)):
-                    self.is_need_work = False
-                    return
+            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                if event.text:
+                    print(event)
+                    if (self.process_new_messages(event)):
+                        self.is_need_work = False
+                        return
+                else:
+                    self.group_representative.messages.send(
+                        user_id=event.user_id,
+                        random_id=get_random_id(),
+                        message='Я не знаю такой команды(((',
+                        keyboard=self.main_keyboard
+                    )

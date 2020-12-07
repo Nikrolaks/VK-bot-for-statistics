@@ -1,19 +1,18 @@
 {
-  "one_time" : true,
   "buttons" : [
     [
       {
         "action" : {
-          "type" : "callback",
-          "payload" : "clear_group",
+          "type" : "text",
+          "payload" : [],
           "label" : "Да"
         },
         "color" : "positive"
       },
       {
         "action" : {
-          "type" : "callback",
-          "payload" : "go_back_to_main",
+          "type" : "text",
+          "payload" : [],
           "label" : "Вернуться"
         },
         "color" : "secondary"
