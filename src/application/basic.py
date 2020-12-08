@@ -2,26 +2,10 @@
 import vk_api
 import time
 from collections import defaultdict
-from src.math.math_diagrams import ContentTimeComputer
+from src.math.statistic_calculator import ContentTimeComputer
 
 
 class GroupNotFoundError(Exception):
-    pass
-
-
-class GroupIsAlreadyDeleted(Exception):
-    pass
-
-
-class GroupIsDeletedOrPrivate(Exception):
-    pass
-
-
-class GroupIsAlreadyProcessing(Exception):
-    pass
-
-
-class GroupIsTooBig(Exception):
     pass
 
 
@@ -44,6 +28,7 @@ class Group:
     :param self.group_id: id группы.
     :param self.time_of_beginning: время начала процессинга.
     :param self.math_processor: созданный для этой группы свой объект класса ContentTimeComputer.
+    :param self.count_of_iterations: сколько раз нужно собрать информацию об участниках онлайн.
     :param self.done_iterations: сколько раз собиралась информация об участниках онлайн.
     :param self.were_online: список id пользователей, которые были онлайн в момент предпоследнего сбора данных.
     """
@@ -66,7 +51,7 @@ class Application:
         # создаёт сессию, авторизуется с помощью оффлайн-токена приложения
         session = vk_api.VkApi(token='c15b89d7c15b89d7c15b89d75ac12e9b1ccc15bc15b89d79ee1cf4a5977bbe4ff8f6761')
         self.application_session = session.get_api()
-        self.list_processing_power = [47, 335]
+        self.list_processing_power = [47, 168, 328, 671]
         self.groups_processing_power = {}
         self.groups_map = defaultdict(Group)
 
@@ -87,39 +72,20 @@ class Application:
         except:
             raise GroupNotFoundError()
 
-    def start_initialization_of_group(self, short_name):
-        try:
-            members = self.application_session.groups.getMembers(group_id=short_name)
-        except:
-            raise GroupIsDeletedOrPrivate()
-        group = self.get_group_information_by_short_name(short_name)
-        if members['count'] > 300000:
-            raise GroupIsTooBig()
-        if self.groups_map.get(group.id) == None:
-            raise GroupIsAlreadyProcessing()
-
-    def get_group_description(self, group_id):
-        return self.application_session.groups.getById(group_id=group_id, fields='description')[0]['description']
-
     def add_group_to_process(self, group_id: int, process_power_id: int):
-        if process_power_id > len(self.list_processing_power) and process_power_id >= 0:
+        if process_power_id > len(self.list_processing_power):
             raise ValueError
         else:
             self.groups_processing_power[group_id] = self.list_processing_power[process_power_id-1]
 
     def get_groups_processing_power(self):
-        text = "Доступно два режима работы:\n" + "1 - статистика за сутки\n" "2 - статистика за неделю\n"
+        text = "Доступно три режима работы:\n"+ "1 - статистика за сутки\n" "2 - статистика за неделю\n" \
+               "3 - статистика за две недели"
         return text
 
     def end_group_processing(self, group_id: int):
-        group = self.groups_map.get(group_id)
-        if group == None:
-            raise GroupIsAlreadyDeleted()
-        else:
-            report = group.math_processor.calculate_effective_time()
-            del self.groups_processing_power[group_id]
-            del self.groups_map[group_id]
-            return report
+        del self.groups_processing_power[group_id]
+        del self.groups_map[group_id]
 
     def get_information_about_members_online(self, group: Group) -> list:
         """
@@ -153,4 +119,3 @@ class Application:
         group.were_online = current_members_online
         group.done_iterations += 1
         return group.done_iterations == group_processing_mode
-
