@@ -1,0 +1,33 @@
+{
+  "one_time" : true,
+  "buttons" : [
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Сколько осталось до конца обработки"
+        },
+        "color" : "primary"
+      }
+    ],
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Убрать группу"
+        },
+        "color" : "negative"
+      }
+    ],
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Вернуться"
+        },
+        "color" : "secondary"
+      }
+    ]
+  ],
+  "inline" : false
+}

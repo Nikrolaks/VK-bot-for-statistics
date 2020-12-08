@@ -1,0 +1,23 @@
+{
+  "buttons" : [
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "payload" : [],
+          "label" : "Да"
+        },
+        "color" : "positive"
+      },
+      {
+        "action" : {
+          "type" : "text",
+          "payload" : [],
+          "label" : "Вернуться"
+        },
+        "color" : "secondary"
+      }
+    ]
+  ],
+  "inline" : true
+}

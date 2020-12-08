@@ -1,0 +1,36 @@
+{
+  "one_time" : true,
+  "buttons" : [
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Начать сбор статистики",
+          "payload" : []
+        },
+        "color" : "primary"
+      }
+    ],
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Получить список обрабатываемых групп",
+          "payload" : []
+        },
+        "color" : "secondary"
+      }
+    ],
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Помощь",
+          "payload" : []
+        },
+        "color" : "positive"
+      }
+    ]
+  ],
+  "inline" : false
+}
