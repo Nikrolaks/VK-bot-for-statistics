@@ -17,7 +17,7 @@ class ThreadListeningChannel(Thread):
         Эта функция запускает цикл наблюдения за группами.
         """
         print('testestest1')
-        self.bot.start_counting_statistic_loop()
+        self.bot.start_counting_statistic()
         print('this is the end of running thread for listening channel')
 
 
