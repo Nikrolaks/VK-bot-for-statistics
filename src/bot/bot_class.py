@@ -36,7 +36,7 @@ class ProcessingGroup:
     """
     Это класс для обработки группы.
     :param self.request_owner_id: id пользователя, который запросил статистику группы.
-    :param self.group_id: id обрабатываемой группы.
+    :param self.group: представление в памяти обрабатываемой группы.
     """
     def __init__(self, request_owner_id: int, group: GroupDescription):
         self.request_owner_id = request_owner_id
@@ -72,6 +72,7 @@ class VkBotForStatistic:
         self.following_groups = deque()
         self.processing_users = defaultdict(UserRepresentative)
         self.groups_to_start_process = deque()
+        self.groups_to_delete = deque()
         self.exited_processes = deque()
         self.unit_measurement_of_listening = measurement_waiting_intervals
         self.is_work_in_progress = False
@@ -96,8 +97,10 @@ class VkBotForStatistic:
 
     def send_statistic_to_user(self, group: ProcessingGroup) -> None:
         """
+        Эта функция формирует отчет о статистике и посылает его пользователю.
         :param group: пара пользователь - группа, где пользователь - человек, которому нужно
-        отправить отчет; группа - о ее статистике отчет формируется.
+                      отправить отчет; группа - о ее статистике отчет формируется.
+        :return:
         """
         # Генерирование отчетов в недалеком будущем, но пока так.
         # listening_result = self.creating_statistic_system.generate_report(group.group_id)
@@ -106,16 +109,13 @@ class VkBotForStatistic:
             random_id=get_random_id(),
             message='Сбор статистики окончен.\nЯ пока не умею выдавать отчеты, но хотя бы могу сказать, '
                     'что я успешно проследил за твоей группой:333',
-            attachment=['photo197313771_457250812'],
-            keyboard=self.main_keyboard
+            attachment=['photo197313771_457250812']
         )
-        self.exited_processes.append(group)
 
     def count_statistic(self) -> None:
         """
         Эта функция совершает один цикл обновления данных о группах.
         """
-        groups_to_delete = deque()
         groups_to_continue_following = []
 
         # Обновляем данные о группах
@@ -123,14 +123,17 @@ class VkBotForStatistic:
         while self.following_groups.__len__():
             group_process = self.following_groups.pop()
             if self.creating_statistic_system.update_information_for_math_processor(group_process.group.group_id):
-                groups_to_delete.append(group_process)
+                self.groups_to_delete.append(group_process)
+                self.send_statistic_to_user(group_process)
             else:
                 groups_to_continue_following.append(group_process)
 
-        # Удаляем невалидные процессы и формируем отчеты
-        while groups_to_delete.__len__():
-            group_process = groups_to_delete.pop()
-            self.send_statistic_to_user(group_process)
+        # Удаляем невалидные процессы
+        while self.groups_to_delete.__len__():
+            group_process = self.groups_to_delete.pop()
+            self.creating_statistic_system.end_group_processing(group_process.group.group_id)
+            self.exited_processes.append(group_process)
+
 
         self.following_groups = deque(groups_to_continue_following)
         self.is_work_in_progress = False
