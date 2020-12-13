@@ -123,6 +123,9 @@ class ContentTimeComputer:
         self.counter_of_expectation_math_change_coefficient_change += 1
 
     def draw_diagram(self):
+        """
+        рисуем диаграмму и сохраняем в diagram.png
+        """
         max_val = 0
         for i in range(self.number_of_time_intervals):
             if max_val < self.expectation_of_users_online[i]:
@@ -139,8 +142,3 @@ class ContentTimeComputer:
 
         plt.savefig('diagram.png')
 
-
-ctc = ContentTimeComputer(1,9,0)
-ctc.expectation_of_users_online = [123,223,325,523,255,254,44,99,667]
-ctc.expectation_of_income_online = [827,24,577,346,33,21,32,676,56]
-ctc.draw_diagram()
