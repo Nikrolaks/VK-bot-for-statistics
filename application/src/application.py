@@ -36,7 +36,6 @@ class Application:
 
     def create_group_by_short_name(self, request_owner_id, short_name, iterations, vk):
         """
-
         :param request_owner_id: идентификатор, куда уходят данные
         :param short_name: короткое имя группы или id, если у группы нет короткого имени
         :param iterations: сколько раз нужно получить количество пользователей онлайн для получения статистик
