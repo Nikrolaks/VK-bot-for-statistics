@@ -20,6 +20,12 @@ class GroupDescription:
         self.url = url
         self.name = name
 
+    def __eq__(self, other):
+        # c импортированием лажа, что делать - не знаю!!!!!
+        # if not isinstance(other, GroupDescription):
+        #    return False
+        return self.group_id == other.group_id
+
 
 class Group:
     """

@@ -15,7 +15,15 @@
       {
         "action" : {
           "type" : "text",
-          "label" : "Получить список обрабатываемых групп",
+          "label" : "Группы в процессе",
+          "payload" : []
+        },
+        "color" : "secondary"
+      },
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Готовые статистики",
           "payload" : []
         },
         "color" : "secondary"
