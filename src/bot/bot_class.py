@@ -18,17 +18,24 @@ class UserRepresentative:
     def __init__(self):
         self.is_in_setting_group = False
         self.is_selecting_mode = False
+        self.is_in_viewing_processing_groups = False
+        self.is_in_deleting_group = False
+        self.is_in_getting_time_to_end = False
         self.setting_group = None
         self.processing_groups = []
+        self.processed_group = []
 
     def set_group_to_process(self):
         if self.setting_group is not None:
             self.processing_groups.append(self.setting_group)
-            self.revert_changes()
+            self.clear_status()
 
-    def revert_changes(self):
+    def clear_status(self):
         self.is_in_setting_group = False
         self.is_selecting_mode = False
+        self.is_in_viewing_processing_groups = False
+        self.is_in_deleting_group = False
+        self.is_in_getting_time_to_end = False
         self.setting_group = None
 
 
@@ -41,6 +48,12 @@ class ProcessingGroup:
     def __init__(self, request_owner_id: int, group: GroupDescription):
         self.request_owner_id = request_owner_id
         self.group = group
+
+    def __eq__(self, other):
+        # c импортированием лажа, что делать - не знаю!!!!!
+        # if not isinstance(other, ProcessingGroup):
+        #    return False
+        return self.group == other.group and self.request_owner_id == other.request_owner_id
 
 
 class VkBotForStatistic:
@@ -62,9 +75,10 @@ class VkBotForStatistic:
         """
         :param measurement_waiting_intervals: через какие промежутки времени нужно собирать информацию о группах.
         """
+        # Это секретный код доступа к моей группе
         bot_session = vk_api.VkApi(
             token='38848446351cbc8d520eaa7f6340f8533b8d06b0bae7db46bb61428d47571d7565cd642cc98202caccfd6')
-        # Это секретный код доступа к моей группе
+
         self.requests_system = VkLongPoll(bot_session)
         self.group_representative = bot_session.get_api()
         self.creating_statistic_system = Application()
@@ -78,13 +92,40 @@ class VkBotForStatistic:
         self.is_work_in_progress = False
         self.is_need_work = True
 
-        self.keys_to_start_talking_with_bot = ['Начать', 'Привет', '!!!Слава Павлу Дурову!!!']
         with open('keyboards\\main_keyboard.json', 'r', encoding='utf-8') as f:
             self.main_keyboard = f.read()
         with open('keyboards\\set_group_to_process_keyboard.json', 'r', encoding='utf-8') as f:
             self.set_group_to_process_keyboard = f.read()
         with open('keyboards\\show_processing_groups_keyboard.json', 'r', encoding='utf-8') as f:
             self.show_processing_groups_keyboard = f.read()
+        with open('keyboards\\show_groups_with_complete_statistics_keyboard.json', 'r', encoding='utf-8') as f:
+            self.show_groups_with_complete_statistics_keyboard = f.read()
+        with open('keyboards\\show_group_complete_statistics.json', 'r', encoding='utf-8') as f:
+            self.show_group_complete_statistics = f.read()
+
+        self.keys_to_start_talking_with_bot = ['Начать', 'Привет', '!!!Слава Павлу Дурову!!!']
+
+        # Фразы, которые обрабатываются в главном меню
+        self.start_counting_statistic_phrase = 'Начать сбор статистики'
+        self.get_processing_groups_phrase = 'Группы в процессе'
+        self.get_complete_statistics_phrase = 'Готовые статистики'
+        self.get_help_phrase = 'Помощь'
+
+        # Фразы, которые обрабатываются из меню обрабатываемых групп
+        self.get_time_to_end_phrase = 'Сколько осталось до конца обработки'
+        self.delete_group_from_processing_phrase = 'Убрать группу'
+
+        # Фразы, которые обрабатываются из меню групп с готовыми статистиками
+        self.get_statistics_list_phrase = 'Меню статистик'
+
+        # Фразы, которые обрабатываются из меню статистик группы
+        self.get_complete_statistic_phrase = 'Получить статистику'
+
+        # Базовые командные фразы
+        self.go_back_to_menu_phrase = 'Вернуться'
+        self.admin_exit_phrase = 'red button'
+
+        self.admin_ids = [197313771, 388775481]  # Соня Копейкина и Настя Хоробрых <--- верховный шаман нашего сервера
 
     def delete_exited_processes(self):
         """
@@ -93,7 +134,8 @@ class VkBotForStatistic:
         """
         while self.exited_processes.__len__():
             processed_group = self.exited_processes.pop()
-            self.processing_users[processed_group.request_owner_id].processing_groups.remove(processed_group.group)
+            if processed_group.group in self.processing_users[processed_group.request_owner_id].processing_groups:
+                self.processing_users[processed_group.request_owner_id].processing_groups.remove(processed_group.group)
 
     def send_statistic_to_user(self, group: ProcessingGroup) -> None:
         """
@@ -131,9 +173,10 @@ class VkBotForStatistic:
         # Удаляем невалидные процессы
         while self.groups_to_delete.__len__():
             group_process = self.groups_to_delete.pop()
+            if group_process in groups_to_continue_following:
+                groups_to_continue_following.remove(group_process)
             self.creating_statistic_system.end_group_processing(group_process.group.group_id)
             self.exited_processes.append(group_process)
-
 
         self.following_groups = deque(groups_to_continue_following)
         self.is_work_in_progress = False
@@ -183,15 +226,50 @@ class VkBotForStatistic:
     """
     Это большой модуль с функциями, отвечающими на различные сообщения пользователя.
     Каждая из них написана по следующему шаблону:
+    Имя функции начинается с process_messages_
+    Аргументы:
     :param event: информация как о пользователе, так и о его сообшении.
     :return: надо ли завершить работу программы после этого сообщения.
     """
 
     def process_messages_say_hello(self, event: Event) -> bool:
+        user = self.group_representative.users.get(user_ids=[event.user_id])[0]
+        user_name = user['first_name'] + ' ' + user['last_name']
         self.group_representative.messages.send(
             user_id=event.user_id,
-            message='Привет, рад тебя видеть!',
+            message='Привет, рад тебя видеть, {}!'.format(user_name),
             random_id=get_random_id(),
+            keyboard=self.main_keyboard
+        )
+        return False
+
+    def process_messages_go_back_to_menu(self, event: Event) -> bool:
+        self.processing_users[event.user_id].clear_status()
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            message='Пойдем обратно в главное меню',
+            random_id=get_random_id(),
+            keyboard=self.main_keyboard
+        )
+        return False
+
+    def process_messages_return_unknown_command(self, event: Event) -> bool:
+        self.processing_users[event.user_id].clear_status()
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            message='Я не знаю такой команды(((',
+            random_id=get_random_id(),
+            keyboard=self.main_keyboard
+        )
+        return False
+
+    def process_messages_return_exception(self, event: Event) -> bool:
+        self.processing_users[event.user_id].clear_status()
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            random_id=get_random_id(),
+            message='Что-то ты мне не то прислал, брат. Попробуй снова',
+            attachment=['photo197313771_457250813'],
             keyboard=self.main_keyboard
         )
         return False
@@ -202,28 +280,6 @@ class VkBotForStatistic:
             user_id=event.user_id,
             message='Напиши короткое имя группы',
             random_id=get_random_id()
-        )
-        return False
-
-    def process_messages_get_information_about_groups(self, event: Event) -> bool:
-        if not len(self.processing_users[event.user_id].processing_groups):
-            self.group_representative.messages.send(
-                user_id=event.user_id,
-                message='У тебя не обрабатываются группы',
-                random_id=get_random_id(),
-                keyboard=self.main_keyboard
-            )
-            return False
-        message = ''
-        counter = 0
-        for group in self.processing_users[event.user_id].processing_groups:
-            message += '{0} | {1}\n'.format(counter + 1, group.name)
-            counter += 1
-        self.group_representative.messages.send(
-            user_id=event.user_id,
-            message=message,
-            random_id=get_random_id(),
-            keyboard=self.show_processing_groups_keyboard
         )
         return False
 
@@ -248,14 +304,9 @@ class VkBotForStatistic:
                 keyboard=self.main_keyboard
             )
         except ValueError:
-            self.processing_users[event.user_id].revert_changes()
-            self.group_representative.messages.send(
-                user_id=event.user_id,
-                random_id=get_random_id(),
-                message='Что-то ты мне не то прислал, брат. Попробуй снова',
-                attachment=['photo197313771_457250813'],
-                keyboard=self.main_keyboard
-            )
+            self.processing_users[event.user_id].clear_status()
+            self.process_messages_return_exception(event)
+
         return False
 
     def process_messages_select_mode(self, event: Event) -> bool:
@@ -273,19 +324,11 @@ class VkBotForStatistic:
     """
 
     def process_messages_set_group_to_process(self, event: Event) -> bool:
+        # Если перст указующий уже пал на какую-то группу:
         if self.processing_users[event.user_id].is_selecting_mode:
             return self.process_messages_accept_request(event)
         elif event.text == 'Да' and self.processing_users[event.user_id].setting_group is not None:
             return self.process_messages_select_mode(event)
-        elif event.text == 'Вернуться':
-            self.group_representative.messages.send(
-                user_id=event.user_id,
-                message='Пойдем обратно в главное меню',
-                random_id=get_random_id(),
-                keyboard=self.main_keyboard
-            )
-            self.processing_users[event.user_id].revert_changes()
-            return False
 
         group_short_name = event.text
         print(group_short_name)
@@ -302,6 +345,117 @@ class VkBotForStatistic:
         return False
 
     """
+    Небольшой модуль, который нужен для функции process_messages_view_processing_group 
+    """
+
+    def process_messages_ask_for_group_number(self, event: Event) -> bool:
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            random_id=get_random_id(),
+            message='Введи номер группы'
+        )
+        return False
+
+    def process_messages_get_time_to_end(self, event: Event) -> bool:
+        if not self.processing_users[event.user_id].is_in_getting_time_to_end:
+            self.process_messages_ask_for_group_number(event)
+            self.processing_users[event.user_id].is_in_getting_time_to_end = True
+            return False
+
+        try:
+            selected_group_number = int(event.text.split()[0])
+            if selected_group_number <= 0:
+                raise IndexError
+            selected_group = self.processing_users[event.user_id].processing_groups[selected_group_number - 1]
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                random_id=get_random_id(),
+                message='Я пока не умею узнавать время до конца(((',
+                keyboard=self.main_keyboard
+            )
+        except ValueError:
+            self.process_messages_return_exception(event)
+        except IndexError:
+            self.process_messages_return_exception(event)
+
+        self.processing_users[event.user_id].clear_status()
+        return False
+
+    def process_messages_delete_group(self, event: Event) -> bool:
+        if not self.processing_users[event.user_id].is_in_deleting_group:
+            self.process_messages_ask_for_group_number(event)
+            self.processing_users[event.user_id].is_in_deleting_group = True
+            return False
+
+        try:
+            selected_group_number = int(event.text.split()[0])
+            if selected_group_number <= 0:
+                raise IndexError
+            selected_group = self.processing_users[event.user_id].processing_groups[selected_group_number - 1]
+            self.groups_to_delete.append(ProcessingGroup(event.user_id, selected_group))
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                random_id=get_random_id(),
+                message='Группа будет удалена. Учти, отчет по собираемой статистике не придет'
+                        ' (он придет только если сейчас заканчивается сбор информации о группе)',
+                keyboard=self.main_keyboard
+            )
+        except ValueError:
+            self.process_messages_return_exception(event)
+        except IndexError:
+            self.process_messages_return_exception(event)
+
+        self.processing_users[event.user_id].clear_status()
+        return False
+
+    """
+    Небольшой модуль закончился.
+    """
+
+    def process_messages_view_processing_group(self, event: Event) -> bool:
+        if event.text == self.get_time_to_end_phrase or\
+                self.processing_users[event.user_id].is_in_getting_time_to_end:
+            return self.process_messages_get_time_to_end(event)
+        elif event.text == self.delete_group_from_processing_phrase or\
+                self.processing_users[event.user_id].is_in_deleting_group:
+            return self.process_messages_delete_group(event)
+        else:
+            return self.process_messages_return_unknown_command(event)
+
+    def process_messages_get_processing_groups_list(self, event: Event) -> bool:
+        if not len(self.processing_users[event.user_id].processing_groups):
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                message='У тебя не обрабатываются группы',
+                random_id=get_random_id(),
+                keyboard=self.main_keyboard
+            )
+            return False
+        message = ''
+        counter = 0
+        for group in self.processing_users[event.user_id].processing_groups:
+            message += '{0} | {1}\n'.format(counter + 1, group.name)
+            counter += 1
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            message=message,
+            random_id=get_random_id(),
+            keyboard=self.show_processing_groups_keyboard
+        )
+        self.processing_users[event.user_id].is_in_viewing_processing_groups = True
+        return False
+
+    def process_messages_exit(self, event: Event) -> bool:
+        message = 'Я ухожу, но обещаю вернуться вновь.\nМеня выключил админ с id:{}'.format(event.user_id)
+        for admin in self.admin_ids:
+            self.group_representative.messages.send(
+                user_id=admin,
+                random_id=get_random_id(),
+                message=message
+            )
+        return True
+
+    """
     Большой модуль закончился.
     """
 
@@ -313,29 +467,20 @@ class VkBotForStatistic:
         """
         if event.text in self.keys_to_start_talking_with_bot:
             return self.process_messages_say_hello(event)
-        elif event.text == 'Начать сбор статистики':
+        elif event.text == self.go_back_to_menu_phrase:
+            return self.process_messages_go_back_to_menu(event)
+        elif event.text == self.start_counting_statistic_phrase:
             return self.process_messages_start_counting_statistic(event)
-        elif event.text == 'Получить список обрабатываемых групп':
-            return self.process_messages_get_information_about_groups(event)
+        elif event.text == self.get_processing_groups_phrase:
+            return self.process_messages_get_processing_groups_list(event)
         elif self.processing_users[event.user_id].is_in_setting_group:
             return self.process_messages_set_group_to_process(event)
-        elif event.text == 'Вернуться':
-            self.group_representative.messages.send(
-                user_id=event.user_id,
-                message='Пойдем обратно в главное меню',
-                random_id=get_random_id(),
-                keyboard=self.main_keyboard
-            )
-        elif event.text == 'red button' and event.user_id == 197313771:
-            return True
+        elif self.processing_users[event.user_id].is_in_viewing_processing_groups:
+            return self.process_messages_view_processing_group(event)
+        elif event.text == self.admin_exit_phrase and event.user_id in self.admin_ids:
+            return self.process_messages_exit(event)
         else:
-            self.group_representative.messages.send(
-                user_id=event.user_id,
-                message='Я не знаю такой команды(((',
-                random_id=get_random_id(),
-                keyboard=self.main_keyboard
-            )
-        return False
+            return self.process_messages_return_unknown_command(event)
 
     def start_processing_users_messages(self) -> None:
         """
@@ -351,9 +496,4 @@ class VkBotForStatistic:
                         self.is_need_work = False
                         return
                 else:
-                    self.group_representative.messages.send(
-                        user_id=event.user_id,
-                        random_id=get_random_id(),
-                        message='Я не знаю такой команды(((',
-                        keyboard=self.main_keyboard
-                    )
+                    self.process_messages_return_unknown_command(event)

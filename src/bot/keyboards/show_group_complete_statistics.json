@@ -1,0 +1,21 @@
+{
+  "buttons" : [
+    [
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Получить статистику"
+        },
+        "color" : "primary"
+      },
+      {
+        "action" : {
+          "type" : "text",
+          "label" : "Вернуться"
+        },
+        "color" : "secondary"
+      }
+    ]
+  ],
+  "inline" : true
+}
