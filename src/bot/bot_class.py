@@ -1,5 +1,6 @@
 # -*- coding: UTF-8 -*-
 import vk_api
+import requests
 from vk_api.longpoll import VkLongPoll, VkEventType, Event
 from vk_api.utils import get_random_id
 import time
@@ -108,7 +109,7 @@ class VkBotForStatistic:
         # Фразы, которые обрабатываются в главном меню
         self.start_counting_statistic_phrase = 'Начать сбор статистики'
         self.get_processing_groups_phrase = 'Группы в процессе'
-        self.get_complete_statistics_phrase = 'Готовые статистики'
+        self.get_complete_statistics_phrase = 'Готовые отчеты'
         self.get_help_phrase = 'Помощь'
 
         # Фразы, которые обрабатываются из меню обрабатываемых групп
@@ -445,14 +446,67 @@ class VkBotForStatistic:
         self.processing_users[event.user_id].is_in_viewing_processing_groups = True
         return False
 
-    def process_messages_exit(self, event: Event) -> bool:
-        message = 'Я ухожу, но обещаю вернуться вновь.\nМеня выключил админ с id:{}'.format(event.user_id)
-        for admin in self.admin_ids:
+    def process_messages_get_help(self, event: Event):
+        help_message_intro = 'Привет!\n' \
+                             'Наш бот умеет считать статистику твоей группы (если она не слишком большая ;) )\n' \
+                             'P.s ограничение по количеству участников группы - 10К\n' \
+                             'В главном меню есть три кнопки. Давай разберу по полочкам:\n'
+        help_message_first_button_first = '&#9997; Начать сбор статистики &#9997;\n' \
+                                          'Для начала тебе предложат написать короткое имя твоей группы\n ' \
+                                          'Это либо цифры, которые в ссылке идут после слова club:\n' \
+                                          'Например, у такой ссылки\n' \
+                                          '---> https://vk.com/club1 <---\n' \
+                                          'короткое имя - 1\n' \
+                                          'Либо короткая фраза:\n' \
+                                          'Например, у такой ссылки\n' \
+                                          '---> https://vk.com/memkn <---\n' \
+                                          'короткое имя - memkn'
+        help_message_first_button_second = '&#10067; Бот покажет тебе некоторую информацию о группе ' \
+                                           'и спросит, ту ли группу ты имел в виду.\n' \
+                                           'Подтверди или вернись в главное меню'
+        help_message_first_button_third = '&#128195; Далее тебе будет предложено несколько режимов обработки\n' \
+                                          'Просто выбери нужный.\n' \
+                                          'На этом форма ввода группы для просчета статистики окончена.'
+        help_message_second_button_first = '&#128269; Группы в процессе:\n' \
+                                           'Бот покажет, какие группы ты поставил на подсчет статистики\n' \
+                                           'С группами в этом списке можно проводить следующие действия:\n' \
+                                           '&#9200; Узнать, сколько осталось до конца обработки\n' \
+                                           '&#128683; Удалить группу из списка - учти, что при этом отчет ' \
+                                           'о собранной статистике скорее всего не придет: ' \
+                                           'он придет, только если сейчас заканчивается обработка группы'
+        help_message_third_button_first = '&#128202; Готовые отчеты\n' \
+                                          'Здесь хранятся уже собранные данные о группах\n' \
+                                          'Сначала ты попадешь в меню обработанных групп\n' \
+                                          'На клавиатуре будет кнопка: меню статистик. ' \
+                                          'При нажатии на нее тебе предложат указать номер группы в списке\n' \
+                                          'Далее будет выведено меню собранных статистик этой группы\n' \
+                                          'Можно выбрать конкретный отчет и посмотреть подробную информацию по нему\n'
+        help_message_epilogue = '&#9881; Если ты найдешь какие-нибудь ошибки ' \
+                                'или если у тебя остались вопросы, то можешь воспользоваться кнопкой "Отзыв"\n' \
+                                '&#128583; А за сим откланяюсь. Твои покорные слуги и постфактум создатели:\n' \
+                                '&#128101; Копейкина Софья - -  бот\n' \
+                                '&#128101; Хоробрых Анастасия - сервер\n' \
+                                '&#128101; Безруков Вячеслав -  математика\n' \
+                                '&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;'
+        messages = [help_message_intro, help_message_first_button_first, help_message_first_button_second,
+                    help_message_first_button_third, help_message_second_button_first, help_message_third_button_first,
+                    help_message_epilogue]
+        for message in messages:
             self.group_representative.messages.send(
-                user_id=admin,
+                user_id=event.user_id,
                 random_id=get_random_id(),
-                message=message
+                message=message,
+                keyboard=self.main_keyboard
             )
+        return False
+
+    def process_messages_exit(self, event: Event) -> bool:
+        message = 'Я ухожу, но обещаю вернуться вновь'.format(event.user_id)
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            random_id=get_random_id(),
+            message=message
+        )
         return True
 
     """
@@ -477,6 +531,8 @@ class VkBotForStatistic:
             return self.process_messages_set_group_to_process(event)
         elif self.processing_users[event.user_id].is_in_viewing_processing_groups:
             return self.process_messages_view_processing_group(event)
+        elif event.text == self.get_help_phrase:
+            return self.process_messages_get_help(event)
         elif event.text == self.admin_exit_phrase and event.user_id in self.admin_ids:
             return self.process_messages_exit(event)
         else:
@@ -487,13 +543,17 @@ class VkBotForStatistic:
         Эта функция подключается к серверу серверу Вконтакте и следит за действиями,
         происходящими в группе (по большей части за сообщениями, приходящими в чат с группой)
         """
-        for event in self.requests_system.listen():
-            self.delete_exited_processes()
-            if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-                if event.text:
-                    print(event)
-                    if self.process_new_messages(event):
-                        self.is_need_work = False
-                        return
-                else:
-                    self.process_messages_return_unknown_command(event)
+        try:
+            for event in self.requests_system.listen():
+                self.delete_exited_processes()
+                if event.type == VkEventType.MESSAGE_NEW and event.to_me:
+                    if event.text:
+                        print(event)
+                        if self.process_new_messages(event):
+                            self.is_need_work = False
+                            return
+                    else:
+                        self.process_messages_return_unknown_command(event)
+        except requests.exceptions.ReadTimeout:
+            print('Переподключение к серверам ВК')
+            time.sleep(3)
