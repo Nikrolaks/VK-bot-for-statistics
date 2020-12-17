@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -46,7 +47,6 @@ class ContentTimeComputer:
         """
         работает за O(m+n)
         где m, n - количества пользователей
-
         :param user_list_were: массив, содержащие айдишники пользователей которые были в предыдущем просмотре [int]
         :param user_list_now: массив, содержащие айдишники пользователей в текущем просмотре [int]
         :return: возвращаем число присоединившихся int
@@ -69,7 +69,6 @@ class ContentTimeComputer:
     def correct_number_of_online(self, number_of_online_now):
         """
         корректируем матожидание количества пользователей онлайн
-
         :param number_of_online_now: количество пользователей онлайн в данный момент времени
         """
         self.correct_expectation_math_change_coefficient()
@@ -84,10 +83,8 @@ class ContentTimeComputer:
     def correct_income_online(self, user_list_were, user_list_now):
         """
         корректируем матожидание количества пользователей зашедших в онлайн
-
         :param user_list_were: (см. описание соответствующей функции)
         :param user_list_now:
-
         """
         self.correct_expectation_math_change_coefficient()
 
@@ -141,4 +138,3 @@ class ContentTimeComputer:
         plt.bar(index + bw, self.expectation_of_income_online, bw, color='r')
 
         plt.savefig('diagram.png')
-

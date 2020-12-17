@@ -6,7 +6,9 @@ from vk_api.utils import get_random_id
 import time
 from collections import deque
 from collections import defaultdict
-from src.application.basic import Application, GroupNotFoundError, GroupDescription
+from src.application.basic import Application, GroupDescription
+from src.application.basic import GroupIsAlreadyDeleted, GroupNotFoundError,\
+                                  GroupIsDeletedOrPrivate, GroupIsTooBig
 
 
 class UserRepresentative:
@@ -82,6 +84,7 @@ class VkBotForStatistic:
 
         self.requests_system = VkLongPoll(bot_session)
         self.group_representative = bot_session.get_api()
+        self.group_id = 200455000
         self.creating_statistic_system = Application()
 
         self.following_groups = deque()
@@ -89,6 +92,11 @@ class VkBotForStatistic:
         self.groups_to_start_process = deque()
         self.groups_to_delete = deque()
         self.exited_processes = deque()
+
+        self.questions_and_reviews = []
+        self.board_for_questions_and_reviews_name = 'Отзывы, предложения и вопросы'
+        self.board_for_questions_and_reviews_id = 46729628
+
         self.unit_measurement_of_listening = measurement_waiting_intervals
         self.is_work_in_progress = False
         self.is_need_work = True
@@ -111,6 +119,7 @@ class VkBotForStatistic:
         self.get_processing_groups_phrase = 'Группы в процессе'
         self.get_complete_statistics_phrase = 'Готовые отчеты'
         self.get_help_phrase = 'Помощь'
+        self.send_review_or_question_phrase = 'Отзыв'
 
         # Фразы, которые обрабатываются из меню обрабатываемых групп
         self.get_time_to_end_phrase = 'Сколько осталось до конца обработки'
@@ -128,32 +137,22 @@ class VkBotForStatistic:
 
         self.admin_ids = [197313771, 388775481]  # Соня Копейкина и Настя Хоробрых <--- верховный шаман нашего сервера
 
-    def delete_exited_processes(self):
-        """
-        Эта функция вызывается потоком обслуживания запросов пользователей для того,
-        чтобы очистить данные об обработанных группах.
-        """
-        while self.exited_processes.__len__():
-            processed_group = self.exited_processes.pop()
-            if processed_group.group in self.processing_users[processed_group.request_owner_id].processing_groups:
-                self.processing_users[processed_group.request_owner_id].processing_groups.remove(processed_group.group)
-
-    def send_statistic_to_user(self, group: ProcessingGroup) -> None:
+    def send_statistic_to_user(self, group_process: ProcessingGroup) -> None:
         """
         Эта функция формирует отчет о статистике и посылает его пользователю.
-        :param group: пара пользователь - группа, где пользователь - человек, которому нужно
-                      отправить отчет; группа - о ее статистике отчет формируется.
-        :return:
+        :param group_process: пара пользователь - группа, где пользователь - человек, которому нужно
+                              отправить отчет; группа - о ее статистике отчет формируется.
         """
-        # Генерирование отчетов в недалеком будущем, но пока так.
-        # listening_result = self.creating_statistic_system.generate_report(group.group_id)
-        self.group_representative.messages.send(
-            user_id=group.request_owner_id,
-            random_id=get_random_id(),
-            message='Сбор статистики окончен.\nЯ пока не умею выдавать отчеты, но хотя бы могу сказать, '
-                    'что я успешно проследил за твоей группой:333',
-            attachment=['photo197313771_457250812']
-        )
+        try:
+            listening_result = self.creating_statistic_system.end_group_processing(group_process.group.id)
+            self.group_representative.messages.send(
+                user_id=group_process.request_owner_id,
+                random_id=get_random_id(),
+                message='(⊃｡•́‿•̀｡)⊃:｡･:*:･ﾟ’★,｡･:*:･ﾟ’☆\n'
+                        'Cбор статистики окончен.\nТебе стоит выкладывать посты в {}'.format(listening_result)
+            )
+        except GroupIsAlreadyDeleted:
+            return
 
     def count_statistic(self) -> None:
         """
@@ -176,7 +175,6 @@ class VkBotForStatistic:
             group_process = self.groups_to_delete.pop()
             if group_process in groups_to_continue_following:
                 groups_to_continue_following.remove(group_process)
-            self.creating_statistic_system.end_group_processing(group_process.group.group_id)
             self.exited_processes.append(group_process)
 
         self.following_groups = deque(groups_to_continue_following)
@@ -204,7 +202,8 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
-                message='Я нашел вот такую группу:\n'
+                message='┬┴┬┴┤( ͡° ͜ʖ├┬┴┬┴\n'
+                        'Я нашел вот такую группу:\n'
                         'Имя: {0}\n'
                         'Ссылка: {1}\n'
                         'Это та самая группа, статистику для которой ты хотел бы получить?'.format(
@@ -215,12 +214,30 @@ class VkBotForStatistic:
             )
             self.processing_users[request_owner_id].setting_group = group
         except GroupNotFoundError:
-            self.processing_users[request_owner_id].is_in_setting_group = False
+            self.processing_users[request_owner_id].clear_status()
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
-                message='Группы с таким коротким именем нет(((',
+                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
+                        'Группы с таким коротким именем нет(((',
                 keyboard=self.main_keyboard
+            )
+        except GroupIsDeletedOrPrivate:
+            self.processing_users[request_owner_id].clear_status()
+            self.group_representative.messages.send(
+                user_id=request_owner_id,
+                random_id=get_random_id(),
+                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
+                        'Я не могу собрать статистику этой группы. Скорее всего, она была удалена или заблокирована',
+                keyboard=self.main_keyboard
+            )
+        except GroupIsTooBig:
+            self.processing_users[request_owner_id].clear_status()
+            self.group_representative.messages.send(
+                user_id=request_owner_id,
+                random_id=get_random_id(),
+                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
+                        'Эта группа слишком тяжела для меня(( '
             )
         return True
 
@@ -238,7 +255,7 @@ class VkBotForStatistic:
         user_name = user['first_name'] + ' ' + user['last_name']
         self.group_representative.messages.send(
             user_id=event.user_id,
-            message='Привет, рад тебя видеть, {}!'.format(user_name),
+            message='(＠＾◡＾) Привет, рад тебя видеть, {}!'.format(user_name),
             random_id=get_random_id(),
             keyboard=self.main_keyboard
         )
@@ -248,7 +265,7 @@ class VkBotForStatistic:
         self.processing_users[event.user_id].clear_status()
         self.group_representative.messages.send(
             user_id=event.user_id,
-            message='Пойдем обратно в главное меню',
+            message='Σ(°△°|||)︴ Пойдем обратно в главное меню',
             random_id=get_random_id(),
             keyboard=self.main_keyboard
         )
@@ -258,7 +275,8 @@ class VkBotForStatistic:
         self.processing_users[event.user_id].clear_status()
         self.group_representative.messages.send(
             user_id=event.user_id,
-            message='Я не знаю такой команды(((',
+            message='( : ౦ ‸ ౦ : )\n'
+                    'Я не знаю такой команды(((',
             random_id=get_random_id(),
             keyboard=self.main_keyboard
         )
@@ -269,7 +287,7 @@ class VkBotForStatistic:
         self.group_representative.messages.send(
             user_id=event.user_id,
             random_id=get_random_id(),
-            message='Что-то ты мне не то прислал, брат. Попробуй снова',
+            message='Что-то ты мне не то прислал, брат. Попробуй снова︻デ═一',
             attachment=['photo197313771_457250813'],
             keyboard=self.main_keyboard
         )
@@ -279,7 +297,8 @@ class VkBotForStatistic:
         self.processing_users[event.user_id].is_in_setting_group = True
         self.group_representative.messages.send(
             user_id=event.user_id,
-            message='Напиши короткое имя группы',
+            message='☆*:.｡.o(≧▽≦)o.｡.:*☆\n'
+                    'Напиши короткое имя группы',
             random_id=get_random_id()
         )
         return False
@@ -301,7 +320,8 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=event.user_id,
                 random_id=get_random_id(),
-                message='Твой запрос принят',
+                message='ε=ε=ε=ε=┌(;￣▽￣)┘\n'
+                        'Твой запрос принят',
                 keyboard=self.main_keyboard
             )
         except ValueError:
@@ -315,7 +335,7 @@ class VkBotForStatistic:
         self.group_representative.messages.send(
             user_id=event.user_id,
             random_id=get_random_id(),
-            message=processing_powers + '\nНапиши номер интересующего тебя режима'
+            message=processing_powers + '\n⊂(￣▽￣)⊃ Напиши номер интересующего тебя режима'
         )
         self.processing_users[event.user_id].is_selecting_mode = True
         return False
@@ -353,7 +373,7 @@ class VkBotForStatistic:
         self.group_representative.messages.send(
             user_id=event.user_id,
             random_id=get_random_id(),
-            message='Введи номер группы'
+            message='ᕕ( ᐛ )ᕗ Введи номер группы'
         )
         return False
 
@@ -371,7 +391,7 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=event.user_id,
                 random_id=get_random_id(),
-                message='Я пока не умею узнавать время до конца(((',
+                message='(((＞＜))) Я пока не умею узнавать время до конца(((',
                 keyboard=self.main_keyboard
             )
         except ValueError:
@@ -397,7 +417,7 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=event.user_id,
                 random_id=get_random_id(),
-                message='Группа будет удалена. Учти, отчет по собираемой статистике не придет'
+                message='__〆(．．;) Группа будет удалена. Учти, отчет по собираемой статистике не придет'
                         ' (он придет только если сейчас заканчивается сбор информации о группе)',
                 keyboard=self.main_keyboard
             )
@@ -427,7 +447,7 @@ class VkBotForStatistic:
         if not len(self.processing_users[event.user_id].processing_groups):
             self.group_representative.messages.send(
                 user_id=event.user_id,
-                message='У тебя не обрабатываются группы',
+                message='╮(￣ω￣;)╭ У тебя не обрабатываются группы',
                 random_id=get_random_id(),
                 keyboard=self.main_keyboard
             )
@@ -500,6 +520,26 @@ class VkBotForStatistic:
             )
         return False
 
+    def process_messages_send_review_or_question(self, event: Event) -> bool:
+        self.group_representative.board.openTopic(
+            group_id=self.group_id,
+            topic_id=self.board_for_questions_and_reviews_id
+        )
+        user = self.group_representative.users.get(user_ids=[event.user_id])[0]
+        user_information = user['first_name'] + ' ' + user['last_name'] + ' https://vk.com/id{}'.format(event.user_id)
+        message = 'Новый отзыв от пользователя: {}\n' \
+                  '(￣▽￣)/♫•*¨*•.¸¸♪\n'.format(user_information) + event.text
+        self.group_representative.board.createComment(
+            group_id=self.group_id,
+            topic_id=self.board_for_questions_and_reviews_id,
+            message=message
+        )
+        self.group_representative.board.closeTopic(
+            group_id=self.group_id,
+            topic_id=self.board_for_questions_and_reviews_id
+        )
+        return False
+
     def process_messages_exit(self, event: Event) -> bool:
         message = 'Я ухожу, но обещаю вернуться вновь'.format(event.user_id)
         self.group_representative.messages.send(
@@ -513,15 +553,23 @@ class VkBotForStatistic:
     Большой модуль закончился.
     """
 
+    def delete_exited_processes(self):
+        """
+        Эта функция вызывается потоком обслуживания запросов пользователей для того,
+        чтобы очистить данные об обработанных группах.
+        """
+        while self.exited_processes.__len__():
+            processed_group = self.exited_processes.pop()
+            if processed_group.group in self.processing_users[processed_group.request_owner_id].processing_groups:
+                self.processing_users[processed_group.request_owner_id].processing_groups.remove(processed_group.group)
+
     def process_new_messages(self, event: Event) -> bool:
         """
         Эта функция обрабатывает новые сообщения, пришедшие от пользователей.
         :param event: это информация как о полученном сообщении, так и о его отправителе.
         :return нужно ли завершить работу бота.
         """
-        if event.text in self.keys_to_start_talking_with_bot:
-            return self.process_messages_say_hello(event)
-        elif event.text == self.go_back_to_menu_phrase:
+        if event.text == self.go_back_to_menu_phrase:
             return self.process_messages_go_back_to_menu(event)
         elif event.text == self.start_counting_statistic_phrase:
             return self.process_messages_start_counting_statistic(event)
@@ -531,8 +579,12 @@ class VkBotForStatistic:
             return self.process_messages_set_group_to_process(event)
         elif self.processing_users[event.user_id].is_in_viewing_processing_groups:
             return self.process_messages_view_processing_group(event)
+        elif event.text in self.keys_to_start_talking_with_bot:
+            return self.process_messages_say_hello(event)
         elif event.text == self.get_help_phrase:
             return self.process_messages_get_help(event)
+        elif event.text == self.send_review_or_question_phrase:
+            return self.process_messages_send_review_or_question(event)
         elif event.text == self.admin_exit_phrase and event.user_id in self.admin_ids:
             return self.process_messages_exit(event)
         else:
