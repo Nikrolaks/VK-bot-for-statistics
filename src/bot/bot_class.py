@@ -51,6 +51,9 @@ class ProcessingGroup:
     def __init__(self, request_owner_id: int, group: GroupDescription):
         self.request_owner_id = request_owner_id
         self.group = group
+        self.marked_as_new = True
+        self.marked_as_processing = False
+        self.marked_as_deleted = False
 
     def __eq__(self, other):
         # c импортированием лажа, что делать - не знаю!!!!!
@@ -89,13 +92,11 @@ class VkBotForStatistic:
 
         self.following_groups = deque()
         self.processing_users = defaultdict(UserRepresentative)
-        self.groups_to_start_process = deque()
+        self.groups_to_initialize = deque()
         self.groups_to_delete = deque()
         self.exited_processes = deque()
 
         self.questions_and_reviews = []
-        self.board_for_questions_and_reviews_name = 'Отзывы, предложения и вопросы'
-        self.board_for_questions_and_reviews_id = 46729628
 
         self.unit_measurement_of_listening = measurement_waiting_intervals
         self.is_work_in_progress = False
@@ -133,7 +134,10 @@ class VkBotForStatistic:
 
         # Базовые командные фразы
         self.go_back_to_menu_phrase = 'Вернуться'
+
+        # Фразы админов
         self.admin_exit_phrase = 'red button'
+        self.get_questions_and_reviews_phrase = 'get reviews'
 
         self.admin_ids = [197313771, 388775481]  # Соня Копейкина и Настя Хоробрых <--- верховный шаман нашего сервера
 
@@ -158,10 +162,16 @@ class VkBotForStatistic:
         """
         Эта функция совершает один цикл обновления данных о группах.
         """
+        self.is_work_in_progress = True
         groups_to_continue_following = []
 
+        # Добавляем новые группы
+        while self.groups_to_initialize.__len__():
+            group = self.groups_to_initialize.pop()
+            # self.creating_statistic_system.finish_initialize_group(group)
+            self.following_groups.append(group)
+
         # Обновляем данные о группах
-        self.is_work_in_progress = True
         while self.following_groups.__len__():
             group_process = self.following_groups.pop()
             if self.creating_statistic_system.update_information_for_math_processor(group_process.group.id):
@@ -325,8 +335,8 @@ class VkBotForStatistic:
                 self.processing_users[event.user_id].setting_group.id,
                 processing_power
             )
-            self.following_groups.append(ProcessingGroup(event.user_id,
-                                                         self.processing_users[event.user_id].setting_group))
+            self.groups_to_initialize.append(ProcessingGroup(event.user_id,
+                                                             self.processing_users[event.user_id].setting_group))
             self.processing_users[event.user_id].set_group_to_process()
             self.group_representative.messages.send(
                 user_id=event.user_id,
@@ -531,24 +541,28 @@ class VkBotForStatistic:
             )
         return False
 
-    def process_messages_send_review_or_question(self, event: Event) -> bool:
-        self.group_representative.board.openTopic(
-            group_id=self.group_id,
-            topic_id=self.board_for_questions_and_reviews_id
-        )
+    def process_messages_send_question_or_review(self, event: Event) -> bool:
         user = self.group_representative.users.get(user_ids=[event.user_id])[0]
         user_information = user['first_name'] + ' ' + user['last_name'] + ' https://vk.com/id{}'.format(event.user_id)
-        message = 'Новый отзыв от пользователя: {}\n' \
+        message = 'Отзыв от пользователя: {}\n' \
                   '(￣▽￣)/♫•*¨*•.¸¸♪\n'.format(user_information) + event.text
-        self.group_representative.board.createComment(
-            group_id=self.group_id,
-            topic_id=self.board_for_questions_and_reviews_id,
-            message=message
+        self.questions_and_reviews.append(message)
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            random_id=get_random_id(),
+            message='(￣▽￣)/♫•*¨*•.¸¸♪ Твой отзыв был успешно отправлен',
+            keyboard=self.main_keyboard
         )
-        self.group_representative.board.closeTopic(
-            group_id=self.group_id,
-            topic_id=self.board_for_questions_and_reviews_id
-        )
+        return False
+
+    def process_messages_get_questions_and_reviews(self, event: Event) -> bool:
+        for review in self.questions_and_reviews:
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                random_id=get_random_id(),
+                message=review,
+                keyboard=self.main_keyboard
+            )
         return False
 
     def process_messages_exit(self, event: Event) -> bool:
@@ -595,7 +609,9 @@ class VkBotForStatistic:
         elif event.text == self.get_help_phrase:
             return self.process_messages_get_help(event)
         elif event.text == self.send_review_or_question_phrase:
-            return self.process_messages_send_review_or_question(event)
+            return self.process_messages_send_question_or_review(event)
+        elif event.text == self.get_questions_and_reviews_phrase and event.user_id in self.admin_ids:
+            return self.process_messages_get_questions_and_reviews(event)
         elif event.text == self.admin_exit_phrase and event.user_id in self.admin_ids:
             return self.process_messages_exit(event)
         else:
