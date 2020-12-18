@@ -48,12 +48,13 @@ class ProcessingGroup:
     :param self.request_owner_id: id пользователя, который запросил статистику группы.
     :param self.group: представление в памяти обрабатываемой группы.
     """
-    def __init__(self, request_owner_id: int, group: GroupDescription):
+    def __init__(self, request_owner_id: int, group: GroupDescription, processing_power_mode):
         self.request_owner_id = request_owner_id
         self.group = group
+        self.processing_power_mode = processing_power_mode
         self.marked_as_new = True
-        self.marked_as_processing = False
         self.marked_as_deleted = False
+        self.marked_as_processing = False
 
     def __eq__(self, other):
         # c импортированием лажа, что делать - не знаю!!!!!
@@ -92,11 +93,13 @@ class VkBotForStatistic:
 
         self.following_groups = deque()
         self.processing_users = defaultdict(UserRepresentative)
-        self.groups_to_initialize = deque()
+        self.groups_to_start_process = deque()
         self.groups_to_delete = deque()
         self.exited_processes = deque()
 
         self.questions_and_reviews = []
+        self.board_for_questions_and_reviews_name = 'Отзывы, предложения и вопросы'
+        self.board_for_questions_and_reviews_id = 46729628
 
         self.unit_measurement_of_listening = measurement_waiting_intervals
         self.is_work_in_progress = False
@@ -134,10 +137,7 @@ class VkBotForStatistic:
 
         # Базовые командные фразы
         self.go_back_to_menu_phrase = 'Вернуться'
-
-        # Фразы админов
         self.admin_exit_phrase = 'red button'
-        self.get_questions_and_reviews_phrase = 'get reviews'
 
         self.admin_ids = [197313771, 388775481]  # Соня Копейкина и Настя Хоробрых <--- верховный шаман нашего сервера
 
@@ -148,7 +148,8 @@ class VkBotForStatistic:
                               отправить отчет; группа - о ее статистике отчет формируется.
         """
         try:
-            listening_result = self.creating_statistic_system.end_group_processing(group_process.group.id)
+            group_process_id = self.creating_statistic_system.create_string_user_id_group_id(group_process.request_owner_id, group_process.group.id)
+            listening_result = self.creating_statistic_system.end_group_processing(group_process_id)
             self.group_representative.messages.send(
                 user_id=group_process.request_owner_id,
                 random_id=get_random_id(),
@@ -162,19 +163,18 @@ class VkBotForStatistic:
         """
         Эта функция совершает один цикл обновления данных о группах.
         """
-        self.is_work_in_progress = True
         groups_to_continue_following = []
 
-        # Добавляем новые группы
-        while self.groups_to_initialize.__len__():
-            group = self.groups_to_initialize.pop()
-            # self.creating_statistic_system.finish_initialize_group(group)
-            self.following_groups.append(group)
-
         # Обновляем данные о группах
+        self.is_work_in_progress = True
+        while self.groups_to_start_process.__len__():
+            group_process = self.groups_to_start_process.pop()
+            self.creating_statistic_system.finish_initialization_of_group(self.creating_statistic_system.create_string_user_id_group_id(group_process.request_owner_id, group_process.group.id), group_process.processing_power_mode)
+            self.following_groups.append(group_process)
         while self.following_groups.__len__():
             group_process = self.following_groups.pop()
-            if self.creating_statistic_system.update_information_for_math_processor(group_process.group.id):
+            group_process_id = self.creating_statistic_system.create_string_user_id_group_id(group_process.request_owner_id, group_process.group.id)
+            if self.creating_statistic_system.update_information_for_math_processor(group_process_id):
                 self.groups_to_delete.append(group_process)
                 self.send_statistic_to_user(group_process)
             else:
@@ -208,7 +208,7 @@ class VkBotForStatistic:
         :return: корректное ли имя группы было передано.
         """
         try:
-            group = self.creating_statistic_system.start_initialization_of_group(group_short_name)
+            group = self.creating_statistic_system.start_initialization_of_group(group_short_name, request_owner_id)
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
@@ -331,12 +331,12 @@ class VkBotForStatistic:
     def process_messages_accept_request(self, event: Event) -> bool:
         try:
             processing_power = int(event.text.split()[0])
-            self.creating_statistic_system.add_group_to_process(
-                self.processing_users[event.user_id].setting_group.id,
-                processing_power
-            )
-            self.groups_to_initialize.append(ProcessingGroup(event.user_id,
-                                                             self.processing_users[event.user_id].setting_group))
+
+            self.creating_statistic_system.check_selected_mode(processing_power)
+            group_process = ProcessingGroup(event.user_id,
+                                            self.processing_users[event.user_id].setting_group, processing_power)
+            self.groups_to_start_process.append(group_process)
+
             self.processing_users[event.user_id].set_group_to_process()
             self.group_representative.messages.send(
                 user_id=event.user_id,
@@ -408,11 +408,14 @@ class VkBotForStatistic:
             selected_group_number = int(event.text.split()[0])
             if selected_group_number <= 0:
                 raise IndexError
+
             selected_group = self.processing_users[event.user_id].processing_groups[selected_group_number - 1]
+            group_processing_id = self.creating_statistic_system.create_string_user_id_group_id(event.user_id, selected_group.id)
+            time = self.creating_statistic_system.find_time_to_finishing_process(group_processing_id)
             self.group_representative.messages.send(
                 user_id=event.user_id,
                 random_id=get_random_id(),
-                message='(((＞＜))) Я пока не умею узнавать время до конца(((',
+                message="осталось"+str(time)+"часов",
                 keyboard=self.main_keyboard
             )
         except ValueError:
@@ -434,7 +437,7 @@ class VkBotForStatistic:
             if selected_group_number <= 0:
                 raise IndexError
             selected_group = self.processing_users[event.user_id].processing_groups[selected_group_number - 1]
-            self.groups_to_delete.append(ProcessingGroup(event.user_id, selected_group))
+            self.groups_to_delete.append(ProcessingGroup(event.user_id, selected_group, 0))
             self.group_representative.messages.send(
                 user_id=event.user_id,
                 random_id=get_random_id(),
@@ -541,28 +544,24 @@ class VkBotForStatistic:
             )
         return False
 
-    def process_messages_send_question_or_review(self, event: Event) -> bool:
+    def process_messages_send_review_or_question(self, event: Event) -> bool:
+        self.group_representative.board.openTopic(
+            group_id=self.group_id,
+            topic_id=self.board_for_questions_and_reviews_id
+        )
         user = self.group_representative.users.get(user_ids=[event.user_id])[0]
         user_information = user['first_name'] + ' ' + user['last_name'] + ' https://vk.com/id{}'.format(event.user_id)
-        message = 'Отзыв от пользователя: {}\n' \
+        message = 'Новый отзыв от пользователя: {}\n' \
                   '(￣▽￣)/♫•*¨*•.¸¸♪\n'.format(user_information) + event.text
-        self.questions_and_reviews.append(message)
-        self.group_representative.messages.send(
-            user_id=event.user_id,
-            random_id=get_random_id(),
-            message='(￣▽￣)/♫•*¨*•.¸¸♪ Твой отзыв был успешно отправлен',
-            keyboard=self.main_keyboard
+        self.group_representative.board.createComment(
+            group_id=self.group_id,
+            topic_id=self.board_for_questions_and_reviews_id,
+            message=message
         )
-        return False
-
-    def process_messages_get_questions_and_reviews(self, event: Event) -> bool:
-        for review in self.questions_and_reviews:
-            self.group_representative.messages.send(
-                user_id=event.user_id,
-                random_id=get_random_id(),
-                message=review,
-                keyboard=self.main_keyboard
-            )
+        self.group_representative.board.closeTopic(
+            group_id=self.group_id,
+            topic_id=self.board_for_questions_and_reviews_id
+        )
         return False
 
     def process_messages_exit(self, event: Event) -> bool:
@@ -609,9 +608,7 @@ class VkBotForStatistic:
         elif event.text == self.get_help_phrase:
             return self.process_messages_get_help(event)
         elif event.text == self.send_review_or_question_phrase:
-            return self.process_messages_send_question_or_review(event)
-        elif event.text == self.get_questions_and_reviews_phrase and event.user_id in self.admin_ids:
-            return self.process_messages_get_questions_and_reviews(event)
+            return self.process_messages_send_review_or_question(event)
         elif event.text == self.admin_exit_phrase and event.user_id in self.admin_ids:
             return self.process_messages_exit(event)
         else:

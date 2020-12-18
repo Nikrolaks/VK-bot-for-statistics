@@ -48,11 +48,12 @@ class Group:
     :param self.done_iterations: сколько раз собиралась информация об участниках онлайн.
     :param self.were_online: список id пользователей, которые были онлайн в момент предпоследнего сбора данных.
     """
-    def __init__(self):
+    def __init__(self, processing_power: int):
         time_of_beginning = math.ceil(time.time())
         self.time_of_beginning = time_of_beginning
-        self.math_processor = ContentTimeComputer(100, Application.current_processing_group, time_of_beginning)
+        self.math_processor = ContentTimeComputer(100, processing_power, time_of_beginning)
         self.done_iterations = 0
+        self.processing_power = processing_power
         self.were_online = []
 
 
@@ -69,8 +70,7 @@ class Application:
         session = vk_api.VkApi(token='c15b89d7c15b89d7c15b89d75ac12e9b1ccc15bc15b89d79ee1cf4a5977bbe4ff8f6761')
         self.application_session = session.get_api()
         self.list_processing_power = [47, 335]
-        self.groups_processing_power = {}
-        self.groups_map = defaultdict(Group)
+        self.groups_map = {}
 
     def get_group_information_by_short_name(self, short_name):
         """
@@ -89,7 +89,14 @@ class Application:
         except:
             raise GroupNotFoundError()
 
-    def start_initialization_of_group(self, short_name):
+    def find_time_to_finishing_process(self, user_group_ids):
+        remained_iterations = self.groups_map[user_group_ids].processing_power - self.groups_map[user_group_ids].done_iterations
+        return remained_iterations/2
+
+    def create_string_user_id_group_id(self, user_id, group_id):
+        return str(user_id) +"_"+str(group_id)
+
+    def start_initialization_of_group(self, short_name, request_owner_id):
         group = self.get_group_information_by_short_name(short_name)
         try:
             members = self.application_session.groups.getMembers(group_id=short_name)
@@ -97,31 +104,32 @@ class Application:
             raise GroupIsDeletedOrPrivate()
         if members['count'] > 10000:
             raise GroupIsTooBig()
-        if group.id in self.groups_map:
+        if self.create_string_user_id_group_id(request_owner_id, group.id) in self.groups_map:
             raise GroupIsAlreadyProcessing()
         return group
+
+    def finish_initialization_of_group(self, user_group_ids, processing_power_mode: int):
+        self.groups_map[user_group_ids] = Group(self.list_processing_power[processing_power_mode-1])
 
     def get_group_description(self, group_id):
         return self.application_session.groups.getById(group_id=group_id, fields='description')[0]['description']
 
-    def add_group_to_process(self, group_id: int, process_power_id: int):
+    def check_selected_mode(self, process_power_id: int):
         if process_power_id > len(self.list_processing_power) and process_power_id >= 0:
             raise ValueError
-        else:
-            self.groups_processing_power[group_id] = self.list_processing_power[process_power_id-1]
 
     def get_groups_processing_power(self):
         text = "Доступно два режима работы:\n" + "1 - статистика за сутки\n" "2 - статистика за неделю\n"
         return text
 
-    def end_group_processing(self, group_id: int):
-        group = self.groups_map.get(group_id)
+    def end_group_processing(self, user_group_ids: str):
+        group = self.groups_map.get(user_group_ids)
         if group is None:
             raise GroupIsAlreadyDeleted()
         else:
             report = group.math_processor.calculate_effective_time()
-            del self.groups_processing_power[group_id]
-            del self.groups_map[group_id]
+            group.math_processor.draw_diagram()
+            del self.groups_map[user_group_ids]
             return report
 
     def get_information_about_members_online(self, group_id: int) -> list:
@@ -139,19 +147,18 @@ class Application:
                     current_members_online.append(member['id'])
         return current_members_online
 
-    def update_information_for_math_processor(self, group_id: int) -> bool:
+    def update_information_for_math_processor(self, user_group_ids: str) -> bool:
         """
         Обновляет информацию для статистики, для ContentTimeComputer
         :param group_id: группа, информацию о которой обрабатываем.
         :return true, если обработка группы должна быть закончена
         """
-        Application.current_processing_group = self.groups_processing_power[group_id]
-        group = self.groups_map[group_id]
-        group_processing_mode = self.groups_processing_power[group_id]
+        group_id = int(user_group_ids.rsplit("_")[1])
+        group = self.groups_map[user_group_ids]
         current_members_online = self.get_information_about_members_online(group_id)
         how_much_online = len(current_members_online)
         group.math_processor.correct_number_of_online(how_much_online)
         group.math_processor.correct_income_online(group.were_online, current_members_online)
         group.were_online = current_members_online
         group.done_iterations += 1
-        return group.done_iterations == group_processing_mode
+        return group.done_iterations == group.processing_power
