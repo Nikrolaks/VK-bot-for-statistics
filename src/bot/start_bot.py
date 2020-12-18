@@ -38,7 +38,7 @@ class ThreadAcceptOrders(Thread):
 
 
 if __name__ == '__main__':
-    super_puper_bot = VkBotForStatistic(3)
+    super_puper_bot = VkBotForStatistic(1)
     thread1 = ThreadAcceptOrders(super_puper_bot)
     thread2 = ThreadListeningChannel(super_puper_bot)
     thread1.start()
