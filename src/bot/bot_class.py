@@ -8,7 +8,7 @@ from collections import deque
 from collections import defaultdict
 from src.application.basic import Application, GroupDescription
 from src.application.basic import GroupIsAlreadyDeleted, GroupNotFoundError,\
-                                  GroupIsDeletedOrPrivate, GroupIsTooBig
+                                  GroupIsDeletedOrPrivate, GroupIsTooBig, GroupIsAlreadyProcessing
 
 
 class UserRepresentative:
@@ -101,15 +101,15 @@ class VkBotForStatistic:
         self.is_work_in_progress = False
         self.is_need_work = True
 
-        with open('keyboards\\main_keyboard.json', 'r', encoding='utf-8') as f:
+        with open('src/bot/keyboards/main_keyboard.json', 'r', encoding='utf-8') as f:
             self.main_keyboard = f.read()
-        with open('keyboards\\set_group_to_process_keyboard.json', 'r', encoding='utf-8') as f:
+        with open('src/bot/keyboards/set_group_to_process_keyboard.json', 'r', encoding='utf-8') as f:
             self.set_group_to_process_keyboard = f.read()
-        with open('keyboards\\show_processing_groups_keyboard.json', 'r', encoding='utf-8') as f:
+        with open('src/bot/keyboards/show_processing_groups_keyboard.json', 'r', encoding='utf-8') as f:
             self.show_processing_groups_keyboard = f.read()
-        with open('keyboards\\show_groups_with_complete_statistics_keyboard.json', 'r', encoding='utf-8') as f:
+        with open('src/bot/keyboards/show_groups_with_complete_statistics_keyboard.json', 'r', encoding='utf-8') as f:
             self.show_groups_with_complete_statistics_keyboard = f.read()
-        with open('keyboards\\show_group_complete_statistics.json', 'r', encoding='utf-8') as f:
+        with open('src/bot/keyboards/show_group_complete_statistics.json', 'r', encoding='utf-8') as f:
             self.show_group_complete_statistics = f.read()
 
         self.keys_to_start_talking_with_bot = ['Начать', 'Привет', '!!!Слава Павлу Дурову!!!']
@@ -164,7 +164,7 @@ class VkBotForStatistic:
         self.is_work_in_progress = True
         while self.following_groups.__len__():
             group_process = self.following_groups.pop()
-            if self.creating_statistic_system.update_information_for_math_processor(group_process.group.group_id):
+            if self.creating_statistic_system.update_information_for_math_processor(group_process.group.id):
                 self.groups_to_delete.append(group_process)
                 self.send_statistic_to_user(group_process)
             else:
@@ -198,7 +198,7 @@ class VkBotForStatistic:
         :return: корректное ли имя группы было передано.
         """
         try:
-            group = self.creating_statistic_system.get_group_information_by_short_name(group_short_name)
+            group = self.creating_statistic_system.start_initialization_of_group(group_short_name)
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
@@ -237,7 +237,18 @@ class VkBotForStatistic:
                 user_id=request_owner_id,
                 random_id=get_random_id(),
                 message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
-                        'Эта группа слишком тяжела для меня(( '
+                        'Эта группа слишком тяжела для меня(( ',
+                keyboard = self.main_keyboard
+            )
+        except GroupIsAlreadyProcessing:
+            self.processing_users[request_owner_id].clear_status()
+            self.group_representative.messages.send(
+                user_id=request_owner_id,
+                random_id=get_random_id(),
+                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
+                        'Кто-то уже запустил обработку этой группы(( ',
+                keyboard=self.main_keyboard
+
             )
         return True
 
@@ -311,7 +322,7 @@ class VkBotForStatistic:
         try:
             processing_power = int(event.text.split()[0])
             self.creating_statistic_system.add_group_to_process(
-                self.processing_users[event.user_id].setting_group.group_id,
+                self.processing_users[event.user_id].setting_group.id,
                 processing_power
             )
             self.following_groups.append(ProcessingGroup(event.user_id,

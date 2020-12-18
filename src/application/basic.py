@@ -1,6 +1,7 @@
 # -*- coding: UTF-8 -*-
 import vk_api
 import time
+import math
 from collections import defaultdict
 from src.math.math_diagrams import ContentTimeComputer
 
@@ -47,11 +48,10 @@ class Group:
     :param self.done_iterations: сколько раз собиралась информация об участниках онлайн.
     :param self.were_online: список id пользователей, которые были онлайн в момент предпоследнего сбора данных.
     """
-    def __init__(self, group_id: int, math_processor: ContentTimeComputer):
-        self.id = group_id
-        time_of_beginning = time.gmtime(time.time())
+    def __init__(self):
+        time_of_beginning = math.ceil(time.time())
         self.time_of_beginning = time_of_beginning
-        self.math_processor = math_processor
+        self.math_processor = ContentTimeComputer(100, Application.current_processing_group, time_of_beginning)
         self.done_iterations = 0
         self.were_online = []
 
@@ -62,6 +62,8 @@ class Application:
     :param self.application_session: механизм получения сведений о группе от Вконтакте.
     :param self.list_processing_power: список возможных режимов(сколько раз проводить сбор статистики)
     """
+    current_processing_group = 0
+
     def __init__(self):
         # создаёт сессию, авторизуется с помощью оффлайн-токена приложения
         session = vk_api.VkApi(token='c15b89d7c15b89d7c15b89d75ac12e9b1ccc15bc15b89d79ee1cf4a5977bbe4ff8f6761')
@@ -83,16 +85,16 @@ class Application:
             name = group['name']
             url = 'https://vk.com/' + short_name
             print(name)
-            return GroupDescription(id, url, short_name)
+            return GroupDescription(id, url, name)
         except:
             raise GroupNotFoundError()
 
     def start_initialization_of_group(self, short_name):
+        group = self.get_group_information_by_short_name(short_name)
         try:
             members = self.application_session.groups.getMembers(group_id=short_name)
         except:
             raise GroupIsDeletedOrPrivate()
-        group = self.get_group_information_by_short_name(short_name)
         if members['count'] > 10000:
             raise GroupIsTooBig()
         if group.id in self.groups_map:
@@ -114,7 +116,7 @@ class Application:
 
     def end_group_processing(self, group_id: int):
         group = self.groups_map.get(group_id)
-        if group == None:
+        if group is None:
             raise GroupIsAlreadyDeleted()
         else:
             report = group.math_processor.calculate_effective_time()
@@ -122,16 +124,16 @@ class Application:
             del self.groups_map[group_id]
             return report
 
-    def get_information_about_members_online(self, group: Group) -> list:
+    def get_information_about_members_online(self, group_id: int) -> list:
         """
         :param group: группа, информацию об участниках онлайн которой мы хотим получить.
         :return: список пользователей онлайн в данный момент.
         """
-        members = self.application_session.groups.getMembers(group_id=group.id, fields='online')['count']
+        members = self.application_session.groups.getMembers(group_id=group_id, fields='online')['count']
         n = members//1000+1
         current_members_online = []
         for x in range(n):
-            members = self.application_session.groups.getMembers(group_id=group.id, offset=n*1000, fields='online')
+            members = self.application_session.groups.getMembers(group_id=group_id, offset=n*1000, fields='online')
             for member in members['items']:
                 if member['online'] == 1:
                     current_members_online.append(member['id'])
@@ -143,14 +145,13 @@ class Application:
         :param group_id: группа, информацию о которой обрабатываем.
         :return true, если обработка группы должна быть закончена
         """
+        Application.current_processing_group = self.groups_processing_power[group_id]
         group = self.groups_map[group_id]
         group_processing_mode = self.groups_processing_power[group_id]
-        current_members_online = self.get_information_about_members_online(group)
+        current_members_online = self.get_information_about_members_online(group_id)
         how_much_online = len(current_members_online)
-        group.math_processor.correct_number_of_online(group.done_iterations, how_much_online)
-        group.math_processor.correct_income_online(group.done_iterations,
-                                                   group.were_online,
-                                                   current_members_online)
+        group.math_processor.correct_number_of_online(how_much_online)
+        group.math_processor.correct_income_online(group.were_online, current_members_online)
         group.were_online = current_members_online
         group.done_iterations += 1
         return group.done_iterations == group_processing_mode
