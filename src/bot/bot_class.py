@@ -98,8 +98,6 @@ class VkBotForStatistic:
         self.exited_processes = deque()
 
         self.questions_and_reviews = []
-        self.board_for_questions_and_reviews_name = 'Отзывы, предложения и вопросы'
-        self.board_for_questions_and_reviews_id = 46729628
 
         self.unit_measurement_of_listening = measurement_waiting_intervals
         self.is_work_in_progress = False
@@ -137,7 +135,10 @@ class VkBotForStatistic:
 
         # Базовые командные фразы
         self.go_back_to_menu_phrase = 'Вернуться'
+
+        # Админские командные фразы
         self.admin_exit_phrase = 'red button'
+        self.admin_get_questions_and_reviews_phrase = 'get reviews'
 
         self.admin_ids = [197313771, 388775481]  # Соня Копейкина и Настя Хоробрых <--- верховный шаман нашего сервера
 
@@ -169,11 +170,20 @@ class VkBotForStatistic:
         self.is_work_in_progress = True
         while self.groups_to_start_process.__len__():
             group_process = self.groups_to_start_process.pop()
-            self.creating_statistic_system.finish_initialization_of_group(self.creating_statistic_system.create_string_user_id_group_id(group_process.request_owner_id, group_process.group.id), group_process.processing_power_mode)
+            self.creating_statistic_system.finish_initialization_of_group(
+                user_group_ids=self.creating_statistic_system.create_string_user_id_group_id(
+                    user_id=group_process.request_owner_id,
+                    group_id=group_process.group.id
+                ),
+                processing_power_mode=group_process.processing_power_mode
+            )
             self.following_groups.append(group_process)
         while self.following_groups.__len__():
             group_process = self.following_groups.pop()
-            group_process_id = self.creating_statistic_system.create_string_user_id_group_id(group_process.request_owner_id, group_process.group.id)
+            group_process_id = self.creating_statistic_system.create_string_user_id_group_id(
+                user_id=group_process.request_owner_id,
+                group_id=group_process.group.id
+            )
             if self.creating_statistic_system.update_information_for_math_processor(group_process_id):
                 self.groups_to_delete.append(group_process)
                 self.send_statistic_to_user(group_process)
@@ -228,7 +238,7 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
-                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
+                message='ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀\n'
                         'Группы с таким коротким именем нет(((',
                 keyboard=self.main_keyboard
             )
@@ -237,7 +247,7 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
-                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
+                message='ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀\n'
                         'Я не могу собрать статистику этой группы. Скорее всего, она была удалена или заблокирована',
                 keyboard=self.main_keyboard
             )
@@ -246,7 +256,7 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
-                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
+                message='ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀\n'
                         'Эта группа слишком тяжела для меня(( ',
                 keyboard = self.main_keyboard
             )
@@ -255,8 +265,8 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=request_owner_id,
                 random_id=get_random_id(),
-                message='｀、ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀、ヽ\n'
-                        'Кто-то уже запустил обработку этой группы(( ',
+                message='ヽ｀ヽ｀、ヽ(ノ＞＜)ノ ｀、ヽ｀☂ヽ｀\n'
+                        'Ты уже запустил обработку этой группы(( ',
                 keyboard=self.main_keyboard
 
             )
@@ -410,12 +420,15 @@ class VkBotForStatistic:
                 raise IndexError
 
             selected_group = self.processing_users[event.user_id].processing_groups[selected_group_number - 1]
-            group_processing_id = self.creating_statistic_system.create_string_user_id_group_id(event.user_id, selected_group.id)
-            time = self.creating_statistic_system.find_time_to_finishing_process(group_processing_id)
+            group_processing_id = self.creating_statistic_system.create_string_user_id_group_id(
+                user_id=event.user_id,
+                group_id=selected_group.id
+            )
+            time_to_end = self.creating_statistic_system.find_time_to_finishing_process(group_processing_id)
             self.group_representative.messages.send(
                 user_id=event.user_id,
                 random_id=get_random_id(),
-                message="осталось"+str(time)+"часов",
+                message="౦０o ｡ (‾́。‾́ )y~~ Осталось " + str(time_to_end) + " часов",
                 keyboard=self.main_keyboard
             )
         except ValueError:
@@ -544,24 +557,28 @@ class VkBotForStatistic:
             )
         return False
 
-    def process_messages_send_review_or_question(self, event: Event) -> bool:
-        self.group_representative.board.openTopic(
-            group_id=self.group_id,
-            topic_id=self.board_for_questions_and_reviews_id
-        )
+    def process_messages_send_question_or_review(self, event: Event) -> bool:
         user = self.group_representative.users.get(user_ids=[event.user_id])[0]
         user_information = user['first_name'] + ' ' + user['last_name'] + ' https://vk.com/id{}'.format(event.user_id)
-        message = 'Новый отзыв от пользователя: {}\n' \
+        message = 'Отзыв от пользователя: {}\n' \
                   '(￣▽￣)/♫•*¨*•.¸¸♪\n'.format(user_information) + event.text
-        self.group_representative.board.createComment(
-            group_id=self.group_id,
-            topic_id=self.board_for_questions_and_reviews_id,
-            message=message
+        self.questions_and_reviews.append(message)
+        self.group_representative.messages.send(
+            user_id=event.user_id,
+            random_id=get_random_id(),
+            message='(￣▽￣)/♫•*¨*•.¸¸♪ Твой отзыв был успешно отправлен',
+            keyboard=self.main_keyboard
         )
-        self.group_representative.board.closeTopic(
-            group_id=self.group_id,
-            topic_id=self.board_for_questions_and_reviews_id
-        )
+        return False
+
+    def process_messages_get_questions_and_reviews(self, event: Event) -> bool:
+        for review in self.questions_and_reviews:
+            self.group_representative.messages.send(
+                user_id=event.user_id,
+                random_id=get_random_id(),
+                message=review,
+                keyboard=self.main_keyboard
+            )
         return False
 
     def process_messages_exit(self, event: Event) -> bool:
@@ -584,7 +601,8 @@ class VkBotForStatistic:
         """
         while self.exited_processes.__len__():
             processed_group = self.exited_processes.pop()
-            if processed_group.group in self.processing_users[processed_group.request_owner_id].processing_groups:
+            if processed_group.group in\
+                    self.processing_users[processed_group.request_owner_id].processing_groups:
                 self.processing_users[processed_group.request_owner_id].processing_groups.remove(processed_group.group)
 
     def process_new_messages(self, event: Event) -> bool:
@@ -608,7 +626,9 @@ class VkBotForStatistic:
         elif event.text == self.get_help_phrase:
             return self.process_messages_get_help(event)
         elif event.text == self.send_review_or_question_phrase:
-            return self.process_messages_send_review_or_question(event)
+            return self.process_messages_send_question_or_review(event)
+        elif event.text == self.admin_get_questions_and_reviews_phrase and event.user_id in self.admin_ids:
+            return self.process_messages_get_questions_and_reviews(event)
         elif event.text == self.admin_exit_phrase and event.user_id in self.admin_ids:
             return self.process_messages_exit(event)
         else:
