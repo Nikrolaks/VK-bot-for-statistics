@@ -69,7 +69,7 @@ class Application:
         # создаёт сессию, авторизуется с помощью оффлайн-токена приложения
         session = vk_api.VkApi(token='c15b89d7c15b89d7c15b89d75ac12e9b1ccc15bc15b89d79ee1cf4a5977bbe4ff8f6761')
         self.application_session = session.get_api()
-        self.list_processing_power = [47, 335]
+        self.list_processing_power = [10, 335]
         self.groups_map = {}
 
     def get_group_information_by_short_name(self, short_name):
@@ -83,7 +83,7 @@ class Application:
             group = self.application_session.groups.getById(group_id=short_name)[0]
             id = group['id']
             name = group['name']
-            url = 'https://vk.com/' + short_name
+            url = 'https://vk.com/club' + str(id)
             print(name)
             return GroupDescription(id, url, name)
         except:
@@ -129,7 +129,7 @@ class Application:
         else:
             group.math_processor.draw_diagram()
 
-            report = [group.math_processor.calculate_effective_time(), 'src/math/diagram.png']
+            report = [group.math_processor.calculate_effective_time(), 'diagram.png']
             del self.groups_map[user_group_ids]
             return report
 
