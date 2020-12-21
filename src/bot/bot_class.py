@@ -4,6 +4,7 @@ import requests
 from vk_api.longpoll import VkLongPoll, VkEventType, Event
 from vk_api.utils import get_random_id
 import time
+import json
 from collections import deque
 from collections import defaultdict
 from src.application.basic import Application, GroupDescription
@@ -90,6 +91,8 @@ class VkBotForStatistic:
         self.group_representative = bot_session.get_api()
         self.group_id = 200455000
         self.creating_statistic_system = Application()
+        self.url_and_album_for_upload_photos =\
+            self.group_representative.photos.getMessagesUploadServer(peer_id=0)
 
         self.following_groups = deque()
         self.processing_users = defaultdict(UserRepresentative)
@@ -149,13 +152,30 @@ class VkBotForStatistic:
                               отправить отчет; группа - о ее статистике отчет формируется.
         """
         try:
-            group_process_id = self.creating_statistic_system.create_string_user_id_group_id(group_process.request_owner_id, group_process.group.id)
+            group_process_id = self.creating_statistic_system.create_string_user_id_group_id(
+                user_id=group_process.request_owner_id,
+                group_id=group_process.group.id
+            )
             listening_result = self.creating_statistic_system.end_group_processing(group_process_id)
+            # Потом нужно выделить в отдельную функцию
+            response = requests.post(
+                self.url_and_album_for_upload_photos['upload_url'],
+                files={
+                    "file1" : open(listening_result[1], 'rb')
+                }
+            ).json()
+            result = self.group_representative.photos.saveMessagesPhoto(
+                photo=response['photo'],
+                server=response['server'],
+                hash=response['hash']
+            )
+            # Потом нужно выделить в отдельную функцию
             self.group_representative.messages.send(
                 user_id=group_process.request_owner_id,
                 random_id=get_random_id(),
                 message='(⊃｡•́‿•̀｡)⊃:｡･:*:･ﾟ’★,｡･:*:･ﾟ’☆\n'
-                        'Cбор статистики окончен.\nТебе стоит выкладывать посты в {}'.format(listening_result)
+                        'Cбор статистики окончен.\nТебе стоит выкладывать посты в {}'.format(listening_result[0]),
+                attachments=[result['id']]
             )
         except GroupIsAlreadyDeleted:
             return
