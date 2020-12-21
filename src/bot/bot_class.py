@@ -175,7 +175,7 @@ class VkBotForStatistic:
                 random_id=get_random_id(),
                 message='(⊃｡•́‿•̀｡)⊃:｡･:*:･ﾟ’★,｡･:*:･ﾟ’☆\n'
                         'Cбор статистики окончен.\nТебе стоит выкладывать посты в {}'.format(listening_result[0]),
-                attachments=[result['id']]
+                attachment=['photo'+str(result[0]['owner_id'])+'_'+ str(result[0]['id'])]
             )
         except GroupIsAlreadyDeleted:
             return
