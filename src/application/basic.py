@@ -127,8 +127,9 @@ class Application:
         if group is None:
             raise GroupIsAlreadyDeleted()
         else:
-            report = group.math_processor.calculate_effective_time()
             group.math_processor.draw_diagram()
+
+            report = [group.math_processor.calculate_effective_time(), 'src/math/diagram.png']
             del self.groups_map[user_group_ids]
             return report
 
