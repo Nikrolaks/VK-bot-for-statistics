@@ -1,5 +1,4 @@
 # -*- coding: UTF-8 -*-
-import time
 from threading import Thread
 from src.bot.bot_class import VkBotForStatistic
 
