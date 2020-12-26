@@ -15,9 +15,9 @@ class ThreadListeningChannel(Thread):
         """
         Эта функция запускает цикл наблюдения за группами.
         """
-        print('testestest1')
+        print('Канал прослушки открыт')
         self.bot.start_counting_statistic()
-        print('this is the end of running thread for listening channel')
+        print('Канал прослушки закрыт')
 
 
 class ThreadAcceptOrders(Thread):
@@ -32,9 +32,11 @@ class ThreadAcceptOrders(Thread):
         """
         Эта функция запускает цикл обработки сообщений пользователей.
         """
-        print('testestest2')
-        self.bot.start_processing_users_messages()
-        print('this is the end of running thread for accept orders')
+        print('Канал обработки запросов открыт')
+        while True:
+            if self.bot.start_processing_users_messages():
+                break
+        print('Канал обработки запросов закрыт')
 
 
 if __name__ == '__main__':
