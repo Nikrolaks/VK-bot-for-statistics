@@ -33,12 +33,13 @@ class ThreadAcceptOrders(Thread):
         Эта функция запускает цикл обработки сообщений пользователей.
         """
         print('testestest2')
-        self.bot.start_processing_users_messages()
+        while True:
+            self.bot.start_processing_users_messages()
         print('this is the end of running thread for accept orders')
 
 
 if __name__ == '__main__':
-    super_puper_bot = VkBotForStatistic(1)
+    super_puper_bot = VkBotForStatistic(20)
     thread1 = ThreadAcceptOrders(super_puper_bot)
     thread2 = ThreadListeningChannel(super_puper_bot)
     thread1.start()

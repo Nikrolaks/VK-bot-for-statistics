@@ -40,8 +40,8 @@ class ContentTimeComputer:
         # преобразуем время в количество тиков,
         # в неделе 604800 секунд
         for i in range(self.number_of_time_intervals):
-            self.expectation_of_users_online.append(0)
-            self.expectation_of_income_online.append(0)
+            self.expectation_of_users_online.append(0.0)
+            self.expectation_of_income_online.append(0.0)
 
     def counting_new_online(self, user_list_were, user_list_now):
         """
@@ -125,16 +125,17 @@ class ContentTimeComputer:
         """
         max_val = 0
         for i in range(self.number_of_time_intervals):
-            if max_val < self.expectation_of_users_online[i]:
-                max_val = self.expectation_of_users_online[i]
-            if max_val < self.expectation_of_income_online[i]:
-                max_val = self.expectation_of_income_online[i]
+            if abs(max_val) < abs(self.expectation_of_users_online[i]):
+                max_val = abs(self.expectation_of_users_online[i])
+            if abs(max_val) < abs(self.expectation_of_income_online[i]):
+                max_val = abs(self.expectation_of_income_online[i])
 
         index = np.arange(self.number_of_time_intervals)
         bw = 0.3
-        plt.axis([0, self.number_of_time_intervals, 0, max_val])
+        plt.axis([0, self.number_of_time_intervals, -max_val, max_val])
         plt.title('Активность пользователей', fontsize=20)
+        print(self.expectation_of_users_online)
+        print(self.expectation_of_income_online)
         plt.bar(index, self.expectation_of_users_online, bw, color='b')
         plt.bar(index + bw, self.expectation_of_income_online, bw, color='r')
-
         plt.savefig('diagram.png')
