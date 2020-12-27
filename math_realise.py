@@ -137,7 +137,7 @@ class ContentTimeComputer:
 
         plt.axis([0, self.number_of_time_intervals, -max_val, max_val])
         plt.title("Активность пользователей", fontsize=20)
-        labels = ['Mon', 'Tue', 'Wed', 'The','Fri','Sat','Sun']
+        labels = ['Mon', 'Tue', 'Wed', 'Thu','Fri','Sat','Sun']
         plt.bar([x for x in range(self.number_of_time_intervals)], self.expectation_of_users_online, width=0.3,
                 color='b')
         plt.bar([x+0.3 for x in range(self.number_of_time_intervals)], self.expectation_of_income_online, width=0.3,
