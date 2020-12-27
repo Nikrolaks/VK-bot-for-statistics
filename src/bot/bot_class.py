@@ -301,7 +301,12 @@ class VkBotForStatistic:
             if group_process in groups_to_continue_following:
                 groups_to_continue_following.remove(group_process)
             self.exited_processes.append(group_process)
-
+            self.creating_statistic_system.delete_group(
+                self.creating_statistic_system. create_string_user_id_group_id(
+                    user_id=group_process.request_owner_id,
+                    group_id=group_process.group.id
+                )
+            )
         self.following_groups = deque(groups_to_continue_following)
         self.is_work_in_progress = False
         groups_to_continue_following.clear()
@@ -535,7 +540,7 @@ class VkBotForStatistic:
 
             group_processing_id = self.creating_statistic_system.create_string_user_id_group_id(
                 user_id=event.user_id,
-                group_id=selected_group.id
+                group_id=selected_group.group.id
             )
             time_to_end = self.creating_statistic_system.find_time_to_finishing_process(group_processing_id)
             self.group_representative.messages.send(
@@ -655,7 +660,9 @@ class VkBotForStatistic:
                                            '&#128683; Удалить группу из списка - учти, что при этом отчет ' \
                                            'о собранной статистике скорее всего не придет: ' \
                                            'он придет, только если сейчас заканчивается обработка группы\n' \
-                                           'Новые и удаленные группы не сразу начинают и заканчивают соответственно ' \
+                                           'Возможность узнать оставшееся время до конца обработки есть только у групп,' \
+                                           'принятых на обработку не менее, чем за последние полчаса.' \
+                                           ' и удаленные группы не сразу начинают и заканчивают соответственно ' \
                                            'обрабатываться. У таких групп нельзя узнать оставшееся время ' \
                                            'до конца обработки, а удаленную нельзя повторно удалить'
         help_message_third_button_first = '&#128202; Готовые отчеты\n' \
@@ -728,9 +735,9 @@ class VkBotForStatistic:
         """
         while self.exited_processes.__len__():
             processed_group = self.exited_processes.pop()
-            if processed_group.group in\
+            if processed_group in\
                     self.processing_users[processed_group.request_owner_id].processing_groups:
-                self.processing_users[processed_group.request_owner_id].processing_groups.remove(processed_group.group)
+                self.processing_users[processed_group.request_owner_id].processing_groups.remove(processed_group)
 
     def process_new_messages(self, event: Event) -> bool:
         """

@@ -33,7 +33,7 @@ class ContentTimeComputer:
                  monitoring_start_time):
         self.const_expectation_math_change_coefficient = const_expectation_math_change_coefficient_input
         self.number_of_time_intervals = number_of_time_intervals_input
-        self.time = (monitoring_start_time * number_of_time_intervals_input // 604800) % number_of_time_intervals_input
+        self.time = (monitoring_start_time // (604800 // number_of_time_intervals_input))%number_of_time_intervals_input
         # преобразуем время в количество тиков,
         # в неделе 604800 секунд
         for i in range(self.number_of_time_intervals):
@@ -111,20 +111,20 @@ class ContentTimeComputer:
         """
         рисуем диаграмму и сохраняем в diagram.png
         """
+        dpi = 80
+        fig = plt.figure(dpi=dpi, figsize=(512 / dpi, 384 / dpi))
         max_val = 0
         for i in range(self.number_of_time_intervals):
             if abs(max_val) < abs(self.expectation_of_users_online[i]):
                 max_val = abs(self.expectation_of_users_online[i])
             if abs(max_val) < abs(self.expectation_of_income_online[i]):
                 max_val = abs(self.expectation_of_income_online[i])
-        index = np.arange(self.number_of_time_intervals)
-        bw = 0.3
         plt.axis([0, self.number_of_time_intervals, -max_val, max_val])
         plt.title("Активность пользователей", fontsize=20)
         print(self.expectation_of_users_online)
         print(self.expectation_of_income_online)
+        plt.bar([x for x in range(self.number_of_time_intervals)], self.expectation_of_users_online, width=0.3, color='b')
+        plt.bar([x+0.3 for x in range(self.number_of_time_intervals)], self.expectation_of_income_online, width=0.3, color='r')
         print(self.time)
-        plt.bar(index, self.expectation_of_users_online, bw, color='b')
-        plt.bar(index + bw, self.expectation_of_income_online, bw, color='r')
         plt.show()
-        plt.savefig(save_file)
+        fig.savefig(save_file)
