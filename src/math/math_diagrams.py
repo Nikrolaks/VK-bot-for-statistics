@@ -2,8 +2,6 @@
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-
-
 class ContentTimeComputer:
     """
     :param number_of_time_intervals: константа, указывающая сколько временных промежутков мы смотрим (сейчас 7 дней,
@@ -31,7 +29,6 @@ class ContentTimeComputer:
     expectation_of_users_online = []
     expectation_of_income_online = []
     counter_of_expectation_math_change_coefficient_change = 0
-
     def __init__(self, const_expectation_math_change_coefficient_input, number_of_time_intervals_input,
                  monitoring_start_time):
         self.const_expectation_math_change_coefficient = const_expectation_math_change_coefficient_input
@@ -42,7 +39,6 @@ class ContentTimeComputer:
         for i in range(self.number_of_time_intervals):
             self.expectation_of_users_online.append(0.0)
             self.expectation_of_income_online.append(0.0)
-
     def counting_new_online(self, user_list_were, user_list_now):
         """
         работает за O(m+n)
@@ -65,7 +61,6 @@ class ContentTimeComputer:
                 j += 1
             i += 1
         return len(user_list_now) - count
-
     def correct_number_of_online(self, number_of_online_now):
         """
         корректируем матожидание количества пользователей онлайн
@@ -73,13 +68,11 @@ class ContentTimeComputer:
         """
         self.correct_expectation_math_change_coefficient()
         self.time = (self.time + 1) % self.number_of_time_intervals
-
         self.expectation_of_users_online[self.time] = \
             number_of_online_now * \
             (1 - 1 / self.expectation_math_change_coefficient) + \
             (self.expectation_of_users_online[self.time]) / \
             self.expectation_math_change_coefficient
-
     def correct_income_online(self, user_list_were, user_list_now):
         """
         корректируем матожидание количества пользователей зашедших в онлайн
@@ -87,12 +80,10 @@ class ContentTimeComputer:
         :param user_list_now:
         """
         self.correct_expectation_math_change_coefficient()
-
         self.expectation_of_income_online[self.time] = \
             self.counting_new_online(user_list_were, user_list_now) * (
                     1 - 1 / self.expectation_math_change_coefficient) + \
             (self.expectation_of_users_online[self.time]) / self.expectation_math_change_coefficient
-
     def calculate_effective_time(self):
         """
         :return: возвращаем время в которое пост наберет наибольшее количество просмотров str
@@ -108,7 +99,6 @@ class ContentTimeComputer:
         seconds_from_begin_1970 = time.time()
         seconds_from_begin_1970 = seconds_from_begin_1970 - (seconds_from_begin_1970 % 604800) + 334800
         return time.ctime(time_max + seconds_from_begin_1970)
-
     def correct_expectation_math_change_coefficient(self):
         """
         корректируем коэффициент изменения матожидания (иначе статистика будет собираться млрд лет)
@@ -116,10 +106,8 @@ class ContentTimeComputer:
         if self.counter_of_expectation_math_change_coefficient_change % self.number_of_time_intervals == 0 and \
                 self.const_expectation_math_change_coefficient > self.expectation_math_change_coefficient:
             self.expectation_math_change_coefficient += 1
-
         self.counter_of_expectation_math_change_coefficient_change += 1
-
-    def draw_diagram(self):
+    def draw_diagram(self, save_file = str):
         """
         рисуем диаграмму и сохраняем в diagram.png
         """
@@ -129,13 +117,14 @@ class ContentTimeComputer:
                 max_val = abs(self.expectation_of_users_online[i])
             if abs(max_val) < abs(self.expectation_of_income_online[i]):
                 max_val = abs(self.expectation_of_income_online[i])
-
         index = np.arange(self.number_of_time_intervals)
         bw = 0.3
         plt.axis([0, self.number_of_time_intervals, -max_val, max_val])
-        plt.title('Активность пользователей', fontsize=20)
+        plt.title("Активность пользователей", fontsize=20)
         print(self.expectation_of_users_online)
         print(self.expectation_of_income_online)
+        print(self.time)
         plt.bar(index, self.expectation_of_users_online, bw, color='b')
         plt.bar(index + bw, self.expectation_of_income_online, bw, color='r')
-        plt.savefig('diagram.png')
+        plt.show()
+        plt.savefig(save_file)

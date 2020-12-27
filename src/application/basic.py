@@ -2,7 +2,6 @@
 import vk_api
 import time
 import math
-from collections import defaultdict
 from src.math.math_diagrams import ContentTimeComputer
 
 
@@ -46,6 +45,7 @@ class Group:
     :param self.time_of_beginning: время начала процессинга.
     :param self.math_processor: созданный для этой группы свой объект класса ContentTimeComputer.
     :param self.done_iterations: сколько раз собиралась информация об участниках онлайн.
+    :param processing_power: выбранный режим работы (количество временных промежутков сбора статистики)
     :param self.were_online: список id пользователей, которые были онлайн в момент предпоследнего сбора данных.
     """
     def __init__(self, processing_power: int):
@@ -62,8 +62,8 @@ class Application:
     Класс, реализующий поиск информации о группах и обработку результатов поиска.
     :param self.application_session: механизм получения сведений о группе от Вконтакте.
     :param self.list_processing_power: список возможных режимов(сколько раз проводить сбор статистики)
+    :param self.groups_map: словарь, где по ключу строке user_group_ids хранится свой объект класса Group
     """
-    current_processing_group = 0
 
     def __init__(self):
         # создаёт сессию, авторизуется с помощью оффлайн-токена приложения
@@ -74,7 +74,7 @@ class Application:
 
     def get_group_information_by_short_name(self, short_name):
         """
-        создаёт объект класса Group description, если это возможно
+        создаёт объект класса Group description, если группа найдена
         :param short_name: короткое имя или id группы
         :return: объект класса Group description, если верно дано id, или возбуждает исключение
         GroupNotFoundError
@@ -90,13 +90,25 @@ class Application:
             raise GroupNotFoundError()
 
     def find_time_to_finishing_process(self, user_group_ids):
+        """
+        позволяет узнать количество часов до конца обработки с погрешностью в полчаса
+        :param user_group_ids: строка с id пользователя и группы, которая обрабатывается
+        :return: количество часов до конца обработки группы
+        """
         remained_iterations = self.groups_map[user_group_ids].processing_power - self.groups_map[user_group_ids].done_iterations
         return remained_iterations/2
 
     def create_string_user_id_group_id(self, user_id, group_id):
-        return str(user_id) +"_"+str(group_id)
+        return str(user_id) + "_" + str(group_id)
 
     def start_initialization_of_group(self, short_name, request_owner_id):
+        """
+        отлавливает большинство ошибок на стадии инициализации группы(удалённые, частные, несущетсвующие или
+        слишком большие группы(слишком большими для обработки считаем группы, где больше 10000 человек)
+        :param short_name: короткое имя или id группы
+        :param request_owner_id: id пользователя, сделавшего запрос
+        :return: объект класса GroupDescription, если группа корректна
+        """
         group = self.get_group_information_by_short_name(short_name)
         try:
             members = self.application_session.groups.getMembers(group_id=short_name)
@@ -115,7 +127,12 @@ class Application:
         return self.application_session.groups.getById(group_id=group_id, fields='description')[0]['description']
 
     def check_selected_mode(self, process_power_id: int):
-        if process_power_id > len(self.list_processing_power) and process_power_id >= 0:
+        """
+        проверяет, корректно ли пользователем введён режим работы
+        :param process_power_id: выбранный режим работы(в цифрах 1 или 2)
+        :return: поднимает ошибку, если не корректно
+        """
+        if process_power_id > len(self.list_processing_power) and process_power_id <= 0:
             raise ValueError
 
     def get_groups_processing_power(self):
@@ -123,19 +140,25 @@ class Application:
         return text
 
     def end_group_processing(self, user_group_ids: str):
+        """
+        завершает обработку группы и делает отчёт
+        :param user_group_ids: строка с id пользователя и группы, которая обрабатывается
+        :return: отчёт о статистике в виде списка, где первый элемент - время, в которое ползователи были
+        наиболее активны, второй - файл с построенной диаграммой
+        """
         group = self.groups_map.get(user_group_ids)
         if group is None:
             raise GroupIsAlreadyDeleted()
         else:
-            group.math_processor.draw_diagram()
+            group.math_processor.draw_diagram('diagram'+user_group_ids+'.png')
 
-            report = [group.math_processor.calculate_effective_time(), 'diagram.png']
+            report = [group.math_processor.calculate_effective_time(), 'diagram'+user_group_ids + '.png']
             del self.groups_map[user_group_ids]
             return report
 
     def get_information_about_members_online(self, group_id: int) -> list:
         """
-        :param group: группа, информацию об участниках онлайн которой мы хотим получить.
+        :param group_id: id группы, информацию об участниках онлайн которой мы хотим получить.
         :return: список пользователей онлайн в данный момент.
         """
         members = self.application_session.groups.getMembers(group_id=group_id, fields='online')['count']
@@ -151,7 +174,7 @@ class Application:
     def update_information_for_math_processor(self, user_group_ids: str) -> bool:
         """
         Обновляет информацию для статистики, для ContentTimeComputer
-        :param group_id: группа, информацию о которой обрабатываем.
+        :param user_group_ids: строка с id пользователя и группы, которая обрабатывается
         :return true, если обработка группы должна быть закончена
         """
         group_id = int(user_group_ids.rsplit("_")[1])
