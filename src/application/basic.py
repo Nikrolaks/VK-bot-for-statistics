@@ -69,7 +69,7 @@ class Application:
         # создаёт сессию, авторизуется с помощью оффлайн-токена приложения
         session = vk_api.VkApi(token='c15b89d7c15b89d7c15b89d75ac12e9b1ccc15bc15b89d79ee1cf4a5977bbe4ff8f6761')
         self.application_session = session.get_api()
-        self.list_processing_power = [10, 335]
+        self.list_processing_power = [335]
         self.groups_map = {}
 
     def get_group_information_by_short_name(self, short_name):
@@ -136,10 +136,10 @@ class Application:
             raise ValueError
 
     def get_groups_processing_power(self):
-        text = "Доступно два режима работы:\n" + "1 - статистика за сутки\n" "2 - статистика за неделю\n"
+        text = "Доступен один режим работы:\n" + "1 - статистика за неделю\n"
         return text
 
-    def end_group_processing(self, user_group_ids: str):
+    def get_report_with_current_statistics(self, user_group_ids: str):
         """
         завершает обработку группы и делает отчёт
         :param user_group_ids: строка с id пользователя и группы, которая обрабатывается
@@ -150,11 +150,16 @@ class Application:
         if group is None:
             raise GroupIsAlreadyDeleted()
         else:
-            group.math_processor.draw_diagram('diagram'+user_group_ids+'.png')
-
-            report = [group.math_processor.calculate_effective_time(), 'diagram'+user_group_ids + '.png']
-            del self.groups_map[user_group_ids]
+            group.math_processor.draw_diagram('diagram.png')
+            report = [group.math_processor.calculate_effective_time(), 'diagram.png']
             return report
+
+    def delete_group(self, user_group_ids):
+        group = self.groups_map.get(user_group_ids)
+        if group is None:
+            raise GroupIsAlreadyDeleted()
+        else:
+            del self.groups_map[user_group_ids]
 
     def get_information_about_members_online(self, group_id: int) -> list:
         """
