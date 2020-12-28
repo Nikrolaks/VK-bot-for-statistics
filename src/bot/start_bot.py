@@ -1,4 +1,5 @@
 # -*- coding: UTF-8 -*-
+import time
 from threading import Thread
 from src.bot.bot_class import VkBotForStatistic
 
@@ -39,8 +40,9 @@ class ThreadAcceptOrders(Thread):
 
 
 if __name__ == '__main__':
-    super_puper_bot = VkBotForStatistic(30)
+    super_puper_bot = VkBotForStatistic(1800)
     thread1 = ThreadAcceptOrders(super_puper_bot)
     thread2 = ThreadListeningChannel(super_puper_bot)
     thread1.start()
     thread2.start()
+
