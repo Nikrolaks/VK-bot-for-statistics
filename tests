@@ -1,7 +1,3 @@
-# -*- coding: UTF-8 -*-
-import time
-import numpy as np
-import matplotlib.pyplot as plt
 class ContentTimeComputer:
     """
     :param number_of_time_intervals: константа, указывающая сколько временных промежутков мы смотрим (сейчас 7 дней,
@@ -29,20 +25,23 @@ class ContentTimeComputer:
     expectation_of_users_online = []
     expectation_of_income_online = []
     counter_of_expectation_math_change_coefficient_change = 0
+
     def __init__(self, const_expectation_math_change_coefficient_input, number_of_time_intervals_input,
                  monitoring_start_time):
         self.const_expectation_math_change_coefficient = const_expectation_math_change_coefficient_input
         self.number_of_time_intervals = number_of_time_intervals_input
-        self.time = (monitoring_start_time // (604800 // number_of_time_intervals_input))%number_of_time_intervals_input
+        self.time = (monitoring_start_time * number_of_time_intervals_input // 604800) % number_of_time_intervals_input
         # преобразуем время в количество тиков,
         # в неделе 604800 секунд
         for i in range(self.number_of_time_intervals):
-            self.expectation_of_users_online.append(0.0)
-            self.expectation_of_income_online.append(0.0)
+            self.expectation_of_users_online.append(0)
+            self.expectation_of_income_online.append(0)
+
     def counting_new_online(self, user_list_were, user_list_now):
         """
         работает за O(m+n)
         где m, n - количества пользователей
+
         :param user_list_were: массив, содержащие айдишники пользователей которые были в предыдущем просмотре [int]
         :param user_list_now: массив, содержащие айдишники пользователей в текущем просмотре [int]
         :return: возвращаем число присоединившихся int
@@ -61,32 +60,41 @@ class ContentTimeComputer:
                 j += 1
             i += 1
         return len(user_list_now) - count
+
     def correct_number_of_online(self, number_of_online_now):
         """
         корректируем матожидание количества пользователей онлайн
+
         :param number_of_online_now: количество пользователей онлайн в данный момент времени
         """
         self.correct_expectation_math_change_coefficient()
         self.time = (self.time + 1) % self.number_of_time_intervals
+
         self.expectation_of_users_online[self.time] = \
             number_of_online_now * \
             (1 - 1 / self.expectation_math_change_coefficient) + \
             (self.expectation_of_users_online[self.time]) / \
             self.expectation_math_change_coefficient
+
     def correct_income_online(self, user_list_were, user_list_now):
         """
         корректируем матожидание количества пользователей зашедших в онлайн
+
         :param user_list_were: (см. описание соответствующей функции)
         :param user_list_now:
+
         """
         self.correct_expectation_math_change_coefficient()
+
         self.expectation_of_income_online[self.time] = \
             self.counting_new_online(user_list_were, user_list_now) * (
                     1 - 1 / self.expectation_math_change_coefficient) + \
             (self.expectation_of_users_online[self.time]) / self.expectation_math_change_coefficient
+
     def calculate_effective_time(self):
         """
-        :return: возвращаем время в которое пост наберет наибольшее количество просмотров str
+        :return: возвращаем время в которое пост наберет наибольшее количество просмотров в виде количества минут,
+         прошедших с 0.00 понедельника недели, в которой мы находимся
         """
         time_max = 0
         for i in range(self.number_of_time_intervals):
@@ -96,9 +104,8 @@ class ContentTimeComputer:
                     self.expectation_of_income_online[(time_max + 1) % self.number_of_time_intervals]:
                 time_max = i
         time_max = time_max * 604800 // self.number_of_time_intervals
-        seconds_from_begin_1970 = time.time()
-        seconds_from_begin_1970 = seconds_from_begin_1970 - (seconds_from_begin_1970 % 604800) + 334800
-        return time.ctime(time_max + seconds_from_begin_1970)
+        return time_max
+
     def correct_expectation_math_change_coefficient(self):
         """
         корректируем коэффициент изменения матожидания (иначе статистика будет собираться млрд лет)
@@ -106,25 +113,12 @@ class ContentTimeComputer:
         if self.counter_of_expectation_math_change_coefficient_change % self.number_of_time_intervals == 0 and \
                 self.const_expectation_math_change_coefficient > self.expectation_math_change_coefficient:
             self.expectation_math_change_coefficient += 1
+
         self.counter_of_expectation_math_change_coefficient_change += 1
-    def draw_diagram(self, save_file = str):
-        """
-        рисуем диаграмму и сохраняем в diagram.png
-        """
-        dpi = 80
-        fig = plt.figure(dpi=dpi, figsize=(512 / dpi, 384 / dpi))
-        max_val = 0
-        for i in range(self.number_of_time_intervals):
-            if abs(max_val) < abs(self.expectation_of_users_online[i]):
-                max_val = abs(self.expectation_of_users_online[i])
-            if abs(max_val) < abs(self.expectation_of_income_online[i]):
-                max_val = abs(self.expectation_of_income_online[i])
-        plt.axis([0, self.number_of_time_intervals, -max_val, max_val])
-        plt.title("Активность пользователей", fontsize=20)
-        print(self.expectation_of_users_online)
-        print(self.expectation_of_income_online)
-        plt.bar([x for x in range(self.number_of_time_intervals)], self.expectation_of_users_online, width=0.3, color='b')
-        plt.bar([x+0.3 for x in range(self.number_of_time_intervals)], self.expectation_of_income_online, width=0.3, color='r')
-        print(self.time)
-        plt.show()
-        fig.savefig(save_file)
+
+
+ab = ContentTimeComputer(5, 8, 0)
+
+ab.expectation_of_users_online = [10, 1000, 1, 1, 1, 1, 1, 1]
+ab.expectation_of_income_online = [1, 1, 11, 1, 1, 1, 1, 101]
+print(ab.calculate_effective_time())
