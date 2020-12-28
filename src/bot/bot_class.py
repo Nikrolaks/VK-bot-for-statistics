@@ -99,6 +99,7 @@ class UserRepresentative:
         self.is_in_deleting_group = False
         self.is_in_getting_time_to_end = False
         self.setting_group = None
+        self.is_in_getting_not_complete_statistic = False
 
 class VkBotForStatistic:
     """
@@ -227,7 +228,8 @@ class VkBotForStatistic:
             hash=response['hash']
         )
         os.remove(os.path.join(file_with_report_name))
-        return 'photo'+str(result[0]['owner_id'])+'_'+ str(result[0]['id'])
+        print('photo'+str(result[0]['owner_id'])+'_' + str(result[0]['id']))
+        return 'photo'+str(result[0]['owner_id'])+'_' + str(result[0]['id'])
 
     def send_statistic_to_user(self, group_process: ProcessingGroup) -> None:
         """
@@ -569,9 +571,11 @@ class VkBotForStatistic:
                 self.processing_users[event.user_id].clear_status()
                 return False
             self.send_statistic_to_user(selected_group)
-        except ValueError:
+        except ValueError as error_msg:
+            print(error_msg)
             self.process_messages_return_exception(event)
-        except IndexError:
+        except IndexError as error_msg:
+            print(error_msg)
             self.process_messages_return_exception(event)
 
         self.processing_users[event.user_id].clear_status()
