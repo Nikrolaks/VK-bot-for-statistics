@@ -4,6 +4,7 @@ import requests
 from vk_api.longpoll import VkLongPoll, VkEventType, Event
 from vk_api.utils import get_random_id
 import time
+import os
 from collections import deque
 from collections import defaultdict
 from src.application.basic import Application, GroupDescription
@@ -237,6 +238,7 @@ class VkBotForStatistic:
             server=response['server'],
             hash=response['hash']
         )
+
         return 'photo'+str(result[0]['owner_id'])+'_'+ str(result[0]['id'])
 
     def send_statistic_to_user(self, group_process: ProcessingGroup) -> None:
