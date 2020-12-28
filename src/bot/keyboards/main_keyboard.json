@@ -19,14 +19,6 @@
           "payload" : []
         },
         "color" : "secondary"
-      },
-      {
-        "action" : {
-          "type" : "text",
-          "label" : "Готовые отчеты",
-          "payload" : []
-        },
-        "color" : "secondary"
       }
     ],
     [

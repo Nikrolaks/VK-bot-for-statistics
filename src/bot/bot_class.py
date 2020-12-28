@@ -55,14 +55,16 @@ class UserRepresentative:
     """
     Это класс для представления юзеров в памяти.
     Флаг состояния системы по отношению к пользователю:
-    :param bool self.is_in_setting_group:             пользователь в режиме отправки короткого имени группы?
-    :param bool self.is_selecting_mode:               пользователь в режиме выбора режима обработки?
-    :param bool self.is_in_viewing_processing_groups: пользователь в меню обрабатываемых групп?
-    :param bool self.is_in_deleting_group:            пользователь сейчас удаляет группу?
-    :param bool self.is_in_getting_time_to_end:       пользователь хочет получить оставшееся время до конца обработки?
-    :param GroupDescription self.setting_group:       группа, которая сейчас ставится на обработку.
-    :param list self.processing_groups:               список обрабатываемых групп.
-    :param bool self.processed_group:                 список когда-либо обрабатываемых групп.
+    :param bool self.is_in_setting_group:                  пользователь в режиме отправки короткого имени группы?
+    :param bool self.is_selecting_mode:                    пользователь в режиме выбора режима обработки?
+    :param bool self.is_in_viewing_processing_groups:      пользователь в меню обрабатываемых групп?
+    :param bool self.is_in_deleting_group:                 пользователь сейчас удаляет группу?
+    :param bool self.is_in_getting_time_to_end:            пользователь хочет получить оставшееся время
+                                                           до конца обработки?
+    :param bool self.is_in_getting_not_complete_statistic: пользователь хочет получить предварительную статистику?
+    :param GroupDescription self.setting_group:            группа, которая сейчас ставится на обработку.
+    :param list self.processing_groups:                    список обрабатываемых групп.
+    :param bool self.processed_group:                      список когда-либо обрабатываемых групп.
     """
     def __init__(self):
         self.is_in_setting_group = False
@@ -70,6 +72,7 @@ class UserRepresentative:
         self.is_in_viewing_processing_groups = False
         self.is_in_deleting_group = False
         self.is_in_getting_time_to_end = False
+        self.is_in_getting_not_complete_statistic = False
         self.setting_group = None
         self.processing_groups = []
         self.processed_group = []
@@ -108,8 +111,6 @@ class VkBotForStatistic:
     > Секция фраз, которые воспринимает бот:
          Фразы, которые обрабатываются в главном меню
          Фразы, которые обрабатываются из меню обрабатываемых групп
-         Фразы, которые обрабатываются из меню групп с готовыми статистиками
-         Фразы, которые обрабатываются из меню статистик группы
          Базовые командные фразы
          Админские командные фразы
     > Секция ДРУГОЕ
@@ -160,18 +161,12 @@ class VkBotForStatistic:
         #   :param self.main_keyboard:                                 главное меню.
         #   :param self.set_group_to_process_keyboard:                 inline-клавиатура для подтверждения группы.
         #   :param self.show_processing_groups_keyboard:               меню работы со списком обрабатываемых групп.
-        #   :param self.show_groups_with_complete_statistics_keyboard: меню работы со списком обработанных групп.
-        #   :param self.show_group_complete_statistics:                меню работы со списком готовых отчетов по группе.
         with open('src/bot/keyboards/main_keyboard.json', 'r', encoding='utf-8') as f:
             self.main_keyboard = f.read()
         with open('src/bot/keyboards/set_group_to_process_keyboard.json', 'r', encoding='utf-8') as f:
             self.set_group_to_process_keyboard = f.read()
         with open('src/bot/keyboards/show_processing_groups_keyboard.json', 'r', encoding='utf-8') as f:
             self.show_processing_groups_keyboard = f.read()
-        with open('src/bot/keyboards/show_groups_with_complete_statistics_keyboard.json', 'r', encoding='utf-8') as f:
-            self.show_groups_with_complete_statistics_keyboard = f.read()
-        with open('src/bot/keyboards/show_group_complete_statistics.json', 'r', encoding='utf-8') as f:
-            self.show_group_complete_statistics = f.read()
 
         # Секция фраз, которые воспринимает бот.
         # Эта секция подразделяется на подсекции, связанные с клавиатурами.
@@ -184,24 +179,17 @@ class VkBotForStatistic:
         #   :param str self.send_review_or_question_phrase:  фраза для отправки отзыва или вопроса.
         self.start_counting_statistic_phrase = 'Начать сбор статистики'
         self.get_processing_groups_phrase = 'Группы в процессе'
-        self.get_complete_statistics_phrase = 'Готовые отчеты'
         self.get_help_phrase = 'Помощь'
         self.send_review_or_question_phrase = 'Отзыв'
 
         # Фразы, которые обрабатываются из меню обрабатываемых групп:
         #   :param str self.get_time_to_end_phrase:              фраза для получения оставшегося
         #                                                        времени обработки группы.
+        #   :param str self.get_not_complete_statistic_phrase    фраза для получения предварительной статистики.
         #   :param str self.delete_group_from_processing_phrase: фраза для экстренного завершения обработки группы.
         self.get_time_to_end_phrase = 'Сколько осталось до конца обработки'
+        self.get_not_complete_statistic_phrase = 'Получить предварительный отчет'
         self.delete_group_from_processing_phrase = 'Убрать группу'
-
-        # Фразы, которые обрабатываются из меню групп с готовыми статистиками:
-        #   :param str self.get_statistics_list_phrase: фраза для перехода к списку готовых статистик группы.
-        self.get_statistics_list_phrase = 'Меню статистик'
-
-        # Фразы, которые обрабатываются из меню статистик группы:
-        #   :param str self.get_complete_statistic_phrase: фраза для получения готовой статистики группы.
-        self.get_complete_statistic_phrase = 'Получить статистику'
 
         # Базовые командные фразы:
         #   :param str self.go_back_to_menu_phrase: фраза для включения главной клавиатуры.
@@ -238,7 +226,7 @@ class VkBotForStatistic:
             server=response['server'],
             hash=response['hash']
         )
-
+        os.remove(os.path.join(file_with_report_name))
         return 'photo'+str(result[0]['owner_id'])+'_'+ str(result[0]['id'])
 
     def send_statistic_to_user(self, group_process: ProcessingGroup) -> None:
@@ -252,14 +240,12 @@ class VkBotForStatistic:
                 user_id=group_process.request_owner_id,
                 group_id=group_process.group.id
             )
-            listening_result = self.creating_statistic_system.end_group_processing(group_process_id)
-            # Потом нужно выделить в отдельную функцию
-            # Потом нужно выделить в отдельную функцию
+            listening_result = self.creating_statistic_system.get_report_with_current_statistics(group_process_id)
             self.group_representative.messages.send(
                 user_id=group_process.request_owner_id,
                 random_id=get_random_id(),
                 message='(⊃｡•́‿•̀｡)⊃:｡･:*:･ﾟ’★,｡･:*:･ﾟ’☆\n'
-                        'Cбор статистики окончен.\nТебе стоит выкладывать посты в {}'.format(listening_result[0]),
+                        'Тебе стоит выкладывать посты в {}'.format(listening_result[0]),
                 attachment=[self.collect_report(listening_result[1])]
             )
         except GroupIsAlreadyDeleted:
@@ -293,7 +279,6 @@ class VkBotForStatistic:
             )
             if self.creating_statistic_system.update_information_for_math_processor(group_process_id):
                 self.groups_to_delete.append(group_process)
-                self.send_statistic_to_user(group_process)
             else:
                 groups_to_continue_following.append(group_process)
 
@@ -302,13 +287,18 @@ class VkBotForStatistic:
             group_process = self.groups_to_delete.pop()
             if group_process in groups_to_continue_following:
                 groups_to_continue_following.remove(group_process)
-            self.exited_processes.append(group_process)
-            self.creating_statistic_system.delete_group(
-                self.creating_statistic_system. create_string_user_id_group_id(
-                    user_id=group_process.request_owner_id,
-                    group_id=group_process.group.id
+                self.exited_processes.append(group_process)
+            self.send_statistic_to_user(group_process)
+            try:
+                self.creating_statistic_system.delete_group(
+                    self.creating_statistic_system.create_string_user_id_group_id(
+                        user_id=group_process.request_owner_id,
+                        group_id=group_process.group.id
+                    )
                 )
-            )
+            except GroupIsAlreadyDeleted:
+                continue
+
         self.following_groups = deque(groups_to_continue_following)
         self.is_work_in_progress = False
         groups_to_continue_following.clear()
@@ -534,7 +524,7 @@ class VkBotForStatistic:
                 self.group_representative.messages.send(
                     user_id=event.user_id,
                     random_id=get_random_id(),
-                    message="Не могу получить данные об оставшемся времени для этой группы(((",
+                    message="¯\_(ツ)_/¯Не могу получить данные об оставшемся времени для этой группы",
                     keyboard=self.main_keyboard
                 )
                 self.processing_users[event.user_id].clear_status()
@@ -558,6 +548,33 @@ class VkBotForStatistic:
 
         self.processing_users[event.user_id].clear_status()
         return False
+
+    def process_messages_get_not_complete_statistic(self, event: Event):
+        if not self.processing_users[event.user_id].is_in_getting_not_complete_statistic:
+            self.process_messages_ask_for_group_number(event)
+            self.processing_users[event.user_id].is_in_getting_not_complete_statistic = True
+            return False
+        try:
+            selected_group_number = int(event.text.split()[0])
+            if selected_group_number <= 0:
+                raise IndexError
+            selected_group = self.processing_users[event.user_id].processing_groups[selected_group_number - 1]
+            if selected_group.marked_as_new or selected_group.marked_as_deleted:
+                self.group_representative.messages.send(
+                    user_id=event.user_id,
+                    random_id=get_random_id(),
+                    message="¯\_(ツ)_/¯Не могу получить данные о предварительной статистике этой группы",
+                    keyboard=self.main_keyboard
+                )
+                self.processing_users[event.user_id].clear_status()
+                return False
+            self.send_statistic_to_user(selected_group)
+        except ValueError:
+            self.process_messages_return_exception(event)
+        except IndexError:
+            self.process_messages_return_exception(event)
+
+        self.processing_users[event.user_id].clear_status()
 
     def process_messages_delete_group(self, event: Event) -> bool:
         if not self.processing_users[event.user_id].is_in_deleting_group:
@@ -584,8 +601,7 @@ class VkBotForStatistic:
             self.group_representative.messages.send(
                 user_id=event.user_id,
                 random_id=get_random_id(),
-                message='__〆(．．;) Группа будет удалена. Учти, отчет по собираемой статистике не придет'
-                        ' (он придет только если сейчас заканчивается сбор информации о группе)',
+                message='__〆(．．;) Группа будет удалена. Предварительный отчет придет не больше чем через полчаса',
                 keyboard=self.main_keyboard
             )
         except ValueError:
@@ -604,6 +620,9 @@ class VkBotForStatistic:
         if event.text == self.get_time_to_end_phrase or\
                 self.processing_users[event.user_id].is_in_getting_time_to_end:
             return self.process_messages_get_time_to_end(event)
+        elif event.text == self.get_not_complete_statistic_phrase or\
+                self.processing_users[event.user_id].is_in_getting_not_complete_statistic:
+            return self.process_messages_get_not_complete_statistic(event)
         elif event.text == self.delete_group_from_processing_phrase or\
                 self.processing_users[event.user_id].is_in_deleting_group:
             return self.process_messages_delete_group(event)
@@ -659,21 +678,11 @@ class VkBotForStatistic:
                                            'Бот покажет, какие группы ты поставил на подсчет статистики\n' \
                                            'С группами в этом списке можно проводить следующие действия:\n' \
                                            '&#9200; Узнать, сколько осталось до конца обработки\n' \
-                                           '&#128683; Удалить группу из списка - учти, что при этом отчет ' \
-                                           'о собранной статистике скорее всего не придет: ' \
-                                           'он придет, только если сейчас заканчивается обработка группы\n' \
-                                           'Возможность узнать оставшееся время до конца обработки есть только у групп,' \
-                                           'принятых на обработку не менее, чем за последние полчаса.' \
-                                           ' и удаленные группы не сразу начинают и заканчивают соответственно ' \
+                                           '&#9993; Получить предварительный отчет по статистике\n' \
+                                           '&#128683; Удалить группу из списка\n' \
+                                           'Новые группы не сразу начинают, а удаленные группы не сразу заканчивают ' \
                                            'обрабатываться. У таких групп нельзя узнать оставшееся время ' \
-                                           'до конца обработки, а удаленную нельзя повторно удалить'
-        help_message_third_button_first = '&#128202; Готовые отчеты\n' \
-                                          'Здесь хранятся уже собранные данные о группах\n' \
-                                          'Сначала ты попадешь в меню обработанных групп\n' \
-                                          'На клавиатуре будет кнопка: меню статистик. ' \
-                                          'При нажатии на нее тебе предложат указать номер группы в списке\n' \
-                                          'Далее будет выведено меню собранных статистик этой группы\n' \
-                                          'Можно выбрать конкретный отчет и посмотреть подробную информацию по нему\n'
+                                           'до конца обработки, а удаленную группу нельзя повторно удалить'
         help_message_epilogue = '&#9881; Если ты найдешь какие-нибудь ошибки ' \
                                 'или если у тебя остались вопросы, то можешь воспользоваться кнопкой "Отзыв"\n' \
                                 '&#128583; А за сим откланяюсь. Твои покорные слуги и постфактум создатели:\n' \
@@ -682,8 +691,7 @@ class VkBotForStatistic:
                                 '&#128101; Безруков Вячеслав -  математика\n' \
                                 '&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;&#128139;'
         messages = [help_message_intro, help_message_first_button_first, help_message_first_button_second,
-                    help_message_first_button_third, help_message_second_button_first, help_message_third_button_first,
-                    help_message_epilogue]
+                    help_message_first_button_third, help_message_second_button_first, help_message_epilogue]
         for message in messages:
             self.group_representative.messages.send(
                 user_id=event.user_id,
